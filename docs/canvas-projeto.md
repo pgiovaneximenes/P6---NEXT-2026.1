@@ -14,7 +14,7 @@ Lembre da regra do E2: **não existe viabilidade sem amostra baixada e aberta.**
 | **Integrantes** |Marcelo Guimaraes, Paulo Ximenes, Paulo Neves, Maria Alice, Amanda Conceição, Luiza Delgado, Rodrigo Amorim, Victor Silva, Maria Clara Carvalho, Ana Carolina|
 | **Mentor** |Ricardo Andrade , Eric Araujo|
 | **Tema** |Triagem de Laudos|
-| **Repositório GitHub** |https://github.com/pneves953/Projeto-6---Next-Dados/tree/main |
+| **Repositório GitHub** |https://github.com/pgiovaneximenes/P6---NEXT-2026.1|
 
 ---
 
