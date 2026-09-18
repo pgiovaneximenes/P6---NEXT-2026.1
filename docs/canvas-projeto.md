@@ -41,15 +41,12 @@ Tomador de decisão: Analista de Perdas
 
 ## 3. Perguntas analíticas
 
-No mínimo 3, respondíveis com os dados escolhidos. Uma pergunta respondível tem recorte claro (onde, quando, o quê) e o dado necessário existe na fonte. O CP1 verifica que ao menos 3 continuam respondíveis com os dados **reais**.
-
 | # | Pergunta | Que decisão ela informa? | Respondível com os dados? (verificado na amostra) |
 |---|---|---|---|
-| 1 | | | |
-| 2 | | | |
-| 3 | | | |
-| 4 (opcional) | | | |
-| 5 (opcional) | | | |
+| 1 |Quais combinações dos resultados dos ensaios e ocorrências de campo estão mais associadas a indício de fraude ou indício de defeito |Validar a regra de classificação | |
+| 2 |Qual o volume e a idade dos laudos não analisados e qual o impacto financeiro associado a essa fila |Definir a prioridade de análise | |
+| 3 |Qual o impacto financeiro estimado das reclassificações no período |Medir o potencial de resultado | |
+
 
 ---
 
