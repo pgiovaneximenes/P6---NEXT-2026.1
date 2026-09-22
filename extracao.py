@@ -17,11 +17,12 @@ texto_completo = "\n".join(
 )
 
 #Definição das variáveis
+uc = ""
 ordem_serv = ""
-etapa1_aprov = ""
-etapa2_aprov = ""
-etapa3_aprov = ""
-etapa4_aprov = ""
+Integridade_lacre = ""
+Correspondencia_Mod = ""
+Inspeção_geral = ""
+Ensaio_de_marcha = ""
 
 # Função para pegar somente o resultado
 def pegar_resultado(linha):
@@ -40,32 +41,38 @@ linhas = texto_completo.splitlines()
 
 for i, linha in enumerate(linhas):
 
+    if "UC" in linha.split():
+        uc = linhas[i + 1]
+
     if "Ordem de Serviço" in linha:
         ordem_serv = linhas[i + 1]
 
     if "Integridade dos Lacres" in linha:
-        etapa1_aprov = pegar_resultado(linha)
+        Integridade_lacre = pegar_resultado(linha)
 
     if "Correspondencia Mod.Aprovado" in linha:
-        etapa2_aprov = pegar_resultado(linha)
+        Correspondencia_Mod = pegar_resultado(linha)
 
     if "Inspeção Geral Medidor" in linha:
-        etapa3_aprov = pegar_resultado(linha)
+        Inspeção_Geral = pegar_resultado(linha)
 
     if "Ensaio de Marcha em Vazio" in linha:
-        etapa4_aprov = pegar_resultado(linha)
+        Ensaio_de_marcha = pegar_resultado(linha)
 
 # Criar uma tabela
 dados = {
+    "uc": [uc],
     "Ordem de Serviço": [ordem_serv],
-    "Integridade dos Lacres": [etapa1_aprov],
-    "Correspondência do Modelo": [etapa2_aprov],
-    "Inspeção Geral": [etapa3_aprov],
-    "Marcha em Vazio": [etapa4_aprov]
+    "Integridade dos Lacres": [Integridade_lacre],
+    "Correspondência do Modelo": [Correspondencia_Mod],
+    "Inspeção Geral": [Inspeção_Geral],
+    "Marcha em Vazio": [Ensaio_de_marcha]
  }
 
 df = pd.DataFrame(dados)
 
-
 # Mostrar resultado
 print(df.to_string(index=False))
+
+
+
