@@ -6,14 +6,33 @@ from pathlib import Path
 
 
 pasta_script = Path(__file__).resolve().parent
-arquivo_pdf = pasta_script / "dados" / "FRA_REP_03.pdf"
+arquivo_pdf = pasta_script / "dados" / "FRA_REP_02.pdf"
 
+#Leitura do PDF
 leitor = PdfReader(arquivo_pdf)
 
 texto_completo = "\n".join(
     pagina.extract_text() or ""
     for pagina in leitor.pages
 )
+
+#Definição das variáveis
+ordem_serv = ""
+etapa1_aprov = ""
+etapa2_aprov = ""
+etapa3_aprov = ""
+etapa4_aprov = ""
+
+# Função para pegar somente o resultado
+def pegar_resultado(linha):
+
+    if "REPROVADO" in linha:
+        return "REPROVADO"
+
+    if "APROVADO" in linha:
+        return "APROVADO"
+
+    return ""
 
 #Identificador do laudo ; Ordem de serviço
 # Pegar resultado dos ensaios
@@ -25,20 +44,28 @@ for i, linha in enumerate(linhas):
         ordem_serv = linhas[i + 1]
 
     if "Integridade dos Lacres" in linha:
-        etapa1_aprov = linhas[i]
+        etapa1_aprov = pegar_resultado(linha)
 
     if "Correspondencia Mod.Aprovado" in linha:
-        etapa2_aprov = linhas[i]
+        etapa2_aprov = pegar_resultado(linha)
 
     if "Inspeção Geral Medidor" in linha:
-        etapa3_aprov = linhas[i]
+        etapa3_aprov = pegar_resultado(linha)
 
     if "Ensaio de Marcha em Vazio" in linha:
-        etapa4_aprov = linhas[i]
+        etapa4_aprov = pegar_resultado(linha)
 
-print("Ordem de Serviço:", ordem_serv)
-print("Etapa 1:", etapa1_aprov)
-print("Etapa 2:", etapa2_aprov)
-print("Etapa 3:", etapa3_aprov)
-print("Etapa 4:", etapa4_aprov)
-print("-" * 50)
+# Criar uma tabela
+dados = {
+    "Ordem de Serviço": [ordem_serv],
+    "Integridade dos Lacres": [etapa1_aprov],
+    "Correspondência do Modelo": [etapa2_aprov],
+    "Inspeção Geral": [etapa3_aprov],
+    "Marcha em Vazio": [etapa4_aprov]
+ }
+
+df = pd.DataFrame(dados)
+
+
+# Mostrar resultado
+print(df.to_string(index=False))
