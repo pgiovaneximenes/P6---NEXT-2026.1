@@ -2,8 +2,13 @@
 
 import pandas as pd
 from pypdf import PdfReader
+from pathlib import Path
 
-leitor = PdfReader("Projeto-6---Next-Dados/dados/FRA_REP_03.pdf")
+
+pasta_script = Path(__file__).resolve().parent
+arquivo_pdf = pasta_script / "dados" / "FRA_REP_03.pdf"
+
+leitor = PdfReader(arquivo_pdf)
 
 texto_completo = "\n".join(
     pagina.extract_text() or ""
@@ -31,3 +36,9 @@ for i, linha in enumerate(linhas):
     if "Ensaio de Marcha em Vazio" in linha:
         etapa4_aprov = linhas[i]
 
+print("Ordem de Serviço:", ordem_serv)
+print("Etapa 1:", etapa1_aprov)
+print("Etapa 2:", etapa2_aprov)
+print("Etapa 3:", etapa3_aprov)
+print("Etapa 4:", etapa4_aprov)
+print("-" * 50)
