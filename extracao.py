@@ -92,7 +92,7 @@ def extrair_laudo(arquivo_pdf):
 
     # Dados do cliente
     uc = linha_seguinte(linhas, "UC")
-    ordem_serv = linha_seguinte(linhas, "Ordem de Serviço")
+    ordem_serv = linha_seguinte(linhas, "Ordem de Serviço").strip().zfill(12)
     dt_retirada = linha_seguinte(linhas, "Dt. Retirada")
  
     # Data do Ensaio: o valor vem na mesma linha, logo após o rótulo
