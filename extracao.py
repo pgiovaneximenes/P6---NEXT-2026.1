@@ -4,6 +4,7 @@ import pandas as pd
 from pypdf import PdfReader
 from pathlib import Path
 import re
+import unicodedata
 
 
 pasta_script = Path(__file__).resolve().parent
@@ -36,8 +37,29 @@ def pegar_resultado(texto, rotulo):
     busca = re.search(re.escape(rotulo) + r"\s*(REPROVADO|APROVADO)", texto)
     return busca.group(1) if busca else ""
 
-# Limite de erro (%) usado na análise de indício de fraude
+# O ensaio de exatidão é considerado reprovado
 LIMITE_ERRO_FRAUDE = 15
+
+
+# Palavras-chave das anomalias (escritas sem acento e em minúsculas).
+# Cada item é uma expressão regular procurada em cada anomalia do laudo.
+ANOMALIAS_FRAUDE = [
+    r"tampa.*forcad",                         # tampa forçada
+    r"tampa.*abert",                          # tampa aberta
+    r"by.?pass",                              # by-pass / bypass / by pass
+    r"nao registra corretamente o consumo",   # medidor não registra corretamente
+]
+ 
+ANOMALIAS_DEFEITO = [
+    r"display.*apagad",                       # display apagado
+    r"dispositivo de saida.*apagad",          # dispositivo de saída apagado
+]
+ 
+# Textos da classificação final
+SEM_INDICIO = "Sem indício de fraude ou defeito"
+INDICIO_FRAUDE = "Forte indício de fraude"
+INDICIO_DEFEITO = "Forte indício de defeito no medidor"
+ANALISE_MANUAL = "Indício de fraude ou defeito - análise manual"
 
 
 
@@ -57,7 +79,7 @@ def extrair_laudo(arquivo_pdf):
     erro_ativa_ci = ""
     erro_ativa_cp = ""
     resultado_exatidao_ativa = ""
-    analise_indicador_fraude = ""
+    analise_exatidao = ""
     anomalias = ""
 
     
@@ -92,9 +114,9 @@ def extrair_laudo(arquivo_pdf):
             for valor in (erro_ativa_cn, erro_ativa_ci, erro_ativa_cp)
         ]
         if any(abs(valor) > LIMITE_ERRO_FRAUDE for valor in valores_erro):
-            analise_indicador_fraude = "REPROVADO"
+            analise_exatidao = "REPROVADO"
         else:
-            analise_indicador_fraude = "APROVADO"
+            analise_exatidao = "APROVADO"
 
 
     # Resultados dos ensaios
@@ -133,9 +155,64 @@ def extrair_laudo(arquivo_pdf):
         "erro_ativa_ci": erro_ativa_ci,
         "erro_ativa_cp": erro_ativa_cp,
         "resultado_exatidao_ativa": resultado_exatidao_ativa,
-        "analise_indicador_fraude": analise_indicador_fraude,
+        "analise_exatidao": analise_exatidao,
         "anomalias": anomalias
     }
+
+# Função para padronizar o texto: minúsculas e sem acento
+def normalizar(texto):
+    texto = unicodedata.normalize("NFKD", texto.lower())
+    return "".join(c for c in texto if not unicodedata.combining(c))
+
+# Função que verifica se alguma anomalia do laudo bate com a lista de palavras-chave
+def tem_anomalia(anomalias, lista_padroes):
+    for anomalia in anomalias.split(" | "):
+        anomalia = normalizar(anomalia)
+        if any(re.search(padrao, anomalia) for padrao in lista_padroes):
+            return True
+    return False
+
+# Função que classifica UM laudo a partir da linha extraída
+def classificar_laudo(laudo):
+
+    # Definição das variáveis
+    classificacao = ""
+    motivo = ""
+
+    ensaios = [
+        laudo["integridade_lacres"],
+        laudo["inspecao_geral_medidor"],
+        laudo["correspondencia_mod_aprovado"],
+        laudo["ensaio_marcha_vazio"],
+    ]
+
+    # Passo 1: os 4 ensaios aprovados -> sem indício
+    if all(ensaio == "APROVADO" for ensaio in ensaios):
+        classificacao = SEM_INDICIO
+        motivo = "Os 4 ensaios aprovados"
+        return classificacao, motivo
+
+    # Passo 2: algum ensaio diferente de aprovado -> olha a exatidão
+    exatidao = laudo["analise_exatidao"]
+    if exatidao == "REPROVADO":
+        motivo = f"Ensaio reprovado e erro de exatidão acima de {LIMITE_ERRO_FRAUDE}%"
+    elif exatidao == "APROVADO":
+        motivo = "Ensaio reprovado com exatidão dentro da tolerância"
+    else:
+        motivo = "Ensaio reprovado e exatidão sem valores"
+
+    # Passo 3: anomalias definem se é fraude ou defeito (fraude tem prioridade)
+    if tem_anomalia(laudo["anomalias"], ANOMALIAS_FRAUDE):
+        classificacao = INDICIO_FRAUDE
+        motivo += "; anomalia de fraude encontrada"
+    elif tem_anomalia(laudo["anomalias"], ANOMALIAS_DEFEITO):
+        classificacao = INDICIO_DEFEITO
+        motivo += "; anomalia de defeito encontrada"
+    else:
+        classificacao = ANALISE_MANUAL
+        motivo += "; nenhuma anomalia reconhecida"
+
+    return classificacao, motivo
 
 
 # Percorrer todos os PDFs da pasta
@@ -143,7 +220,9 @@ laudos, erros = [], []
  
 for arquivo_pdf in sorted(pasta_brutos.glob("*.pdf")):
     try:
-        laudos.append(extrair_laudo(arquivo_pdf))
+        laudo = extrair_laudo(arquivo_pdf)
+        laudo["classificacao"], laudo["motivo_classificacao"] = classificar_laudo(laudo)
+        laudos.append(laudo)
     except Exception as e:
         erros.append({"arquivo": arquivo_pdf.name, "erro": str(e)})
  
@@ -162,11 +241,11 @@ if not df_erros.empty:
 pasta_amostra = pasta_dados / "amostra"
 pasta_amostra.mkdir(exist_ok=True)   # cria a pasta se ela ainda não existir
 
-#df_laudos.to_csv(
-#    pasta_amostra / "laudos.csv",
-#    index=False,
-#    sep=";",
-#    encoding="utf-8-sig",
-#)
+df_laudos.to_csv(
+    pasta_amostra / "laudos.csv",
+    index=False,
+    sep=";",
+    encoding="utf-8-sig",
+)
 
 
