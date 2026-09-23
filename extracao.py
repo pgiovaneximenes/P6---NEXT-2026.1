@@ -63,8 +63,13 @@ linhas = texto_completo.splitlines()
 for i, linha in enumerate(linhas):
 
     if "UC" in linha.split():
-        uc = linhas[i + 1]
+        uc = linhas[i + 1].strip()
 
+        if len(uc) > 12:
+            print(f"ERRO: A UC '{uc}' possui {len(uc)} caracteres. O limite é 12.")
+        else:
+            uc = uc.zfill(12)
+            
     if "Ordem de Serviço" in linha:
         ordem_serv = linhas[i + 1]
 
