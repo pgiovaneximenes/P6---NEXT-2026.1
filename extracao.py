@@ -3,6 +3,7 @@
 import pandas as pd
 from pypdf import PdfReader
 from pathlib import Path
+import re
 
 
 pasta_script = Path(__file__).resolve().parent
@@ -16,6 +17,24 @@ texto_completo = "\n".join(
     for pagina in leitor.pages
 )
 
+#Pegar erro energia ativa e resultado
+padrao = r'(-?\d+,\d+)\s+(-?\d+,\d+)\s+(-?\d+,\d+)'
+
+resultado = re.search(padrao, texto_completo)
+
+if resultado:
+    erros = resultado.groups()
+
+    for valor in erros:
+        erro = float(valor.replace(',', '.'))
+
+        if abs(erro) > 15:
+            status = "REPROVADO"
+        else:
+            status = "APROVADO"
+
+        print(f"Erro de Energia Ativa: {erro:.2f} - {status}")
+
 #Definição das variáveis
 uc = ""
 ordem_serv = ""
@@ -23,6 +42,7 @@ Integridade_lacre = ""
 Correspondencia_Mod = ""
 Inspeção_geral = ""
 Ensaio_de_marcha = ""
+
 
 # Função para pegar somente o resultado
 def pegar_resultado(linha):
@@ -59,6 +79,7 @@ for i, linha in enumerate(linhas):
     if "Ensaio de Marcha em Vazio" in linha:
         Ensaio_de_marcha = pegar_resultado(linha)
 
+    
 # Criar uma tabela
 dados = {
     "uc": [uc],
@@ -73,6 +94,8 @@ df = pd.DataFrame(dados)
 
 # Mostrar resultado
 print(df.to_string(index=False))
+
+
 
 
 
