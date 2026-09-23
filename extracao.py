@@ -7,105 +7,150 @@ import re
 
 
 pasta_script = Path(__file__).resolve().parent
-arquivo_pdf = pasta_script / "dados" / "FRA_REP_02.pdf"
-
-#Leitura do PDF
-leitor = PdfReader(arquivo_pdf)
-
-texto_completo = "\n".join(
-    pagina.extract_text() or ""
-    for pagina in leitor.pages
-)
-
-#Pegar erro energia ativa e resultado
-padrao = r'(-?\d+,\d+)\s+(-?\d+,\d+)\s+(-?\d+,\d+)'
-
-resultado = re.search(padrao, texto_completo)
-
-if resultado:
-    erros = resultado.groups()
-
-    for valor in erros:
-        erro = float(valor.replace(',', '.'))
-
-        if abs(erro) > 15:
-            status = "REPROVADO"
-        else:
-            status = "APROVADO"
-
-        print(f"Erro de Energia Ativa: {erro:.2f} - {status}")
-
-#Definição das variáveis
-uc = ""
-ordem_serv = ""
-data_retirada = ""
-Integridade_lacre = ""
-Correspondencia_Mod = ""
-Inspeção_geral = ""
-Ensaio_de_marcha = ""
+pasta_dados = pasta_script / "dados"
+pasta_brutos = pasta_dados / "brutos"
 
 
-# Função para pegar somente o resultado
-def pegar_resultado(linha):
+# Função para ler o texto completo de um PDF
+def ler_texto(arquivo_pdf):
+    leitor = PdfReader(arquivo_pdf)
+    return "\n".join(
+        pagina.extract_text() or ""
+        for pagina in leitor.pages
+    )
 
-    if "REPROVADO" in linha:
-        return "REPROVADO"
 
-    if "APROVADO" in linha:
-        return "APROVADO"
-
+# Função para pegar o valor da linha seguinte ao rótulo
+def linha_seguinte(linhas, rotulo):
+    for i, linha in enumerate(linhas):
+        if linha.strip() == rotulo or linha.strip().endswith(" " + rotulo):
+            if i + 1 < len(linhas):
+                return linhas[i + 1].strip()
     return ""
 
-#Identificador do laudo ; Ordem de serviço
-# Pegar resultado dos ensaios
-linhas = texto_completo.splitlines()
+# Função para pegar o resultado logo depois do rótulo. 
+# Pega apenas a palavra que vem imediatamente após o rótulo, para não trazer o resultado de outro ensaio caso duas linhas venham coladas.
 
-for i, linha in enumerate(linhas):
 
-    if "UC" in linha.split():
-        uc = linhas[i + 1].strip()
+def pegar_resultado(texto, rotulo):
+    busca = re.search(re.escape(rotulo) + r"\s*(REPROVADO|APROVADO)", texto)
+    return busca.group(1) if busca else ""
 
-        if len(uc) > 12:
-            print(f"ERRO: A UC '{uc}' possui {len(uc)} caracteres. O limite é 12.")
-        else:
-            uc = uc.zfill(12)
-            
-    if "Ordem de Serviço" in linha:
-        ordem_serv = linhas[i + 1]
+# Limite de erro (%) usado na análise de indício de fraude
+LIMITE_ERRO_FRAUDE = 15
 
-    if "Dt. Retirada" in linha:
-        data_retirada = linhas[i + 1]
 
-    if "Integridade dos Lacres" in linha:
-        Integridade_lacre = pegar_resultado(linha)
 
-    if "Correspondencia Mod.Aprovado" in linha:
-        Correspondencia_Mod = pegar_resultado(linha)
-
-    if "Inspeção Geral Medidor" in linha:
-        Inspeção_Geral = pegar_resultado(linha)
-
-    if "Ensaio de Marcha em Vazio" in linha:
-        Ensaio_de_marcha = pegar_resultado(linha)
+# Função que lê UM pdf e devolve uma linha da tabela
+def extrair_laudo(arquivo_pdf):
+ 
+    # Definição das variáveis
+    uc = ""
+    ordem_serv = ""
+    dt_retirada = ""
+    data_ensaio = ""
+    integridade_lacre = ""
+    inspecao_geral = ""
+    correspondencia_mod = ""
+    ensaio_de_marcha = ""
+    erro_ativa_cn = ""
+    erro_ativa_ci = ""
+    erro_ativa_cp = ""
+    resultado_exatidao_ativa = ""
+    analise_indicador_fraude = ""
 
     
-# Criar uma tabela
-dados = {
-    "uc": [uc],
-    "Ordem de Serviço": [ordem_serv],
-    "Data de Retirada": [data_retirada],
-    "Integridade dos Lacres": [Integridade_lacre],
-    "Correspondência do Modelo": [Correspondencia_Mod],
-    "Inspeção Geral": [Inspeção_Geral],
-    "Marcha em Vazio": [Ensaio_de_marcha]
- }
+    # Leitura do PDF
+    texto = ler_texto(arquivo_pdf)
+    if not texto.strip():
+        raise ValueError("PDF sem texto (pode ser escaneado)")
+ 
+    linhas = texto.splitlines()
 
-df = pd.DataFrame(dados)
+    # Dados do cliente
+    uc = linha_seguinte(linhas, "UC")
+    ordem_serv = linha_seguinte(linhas, "Ordem de Serviço")
+    dt_retirada = linha_seguinte(linhas, "Dt. Retirada")
+ 
+    # Data do Ensaio: o valor vem na mesma linha, logo após o rótulo
+    for linha in linhas:
+        if "Data do Ensaio" in linha:
+            data_ensaio = linha.split("Data do Ensaio", 1)[1].strip()
+            break
+
+
+    # Ensaio de Exatidão - Energia Ativa: erros de CN, CI e CP e o resultado do laudo
+    padrao = r"(-?\d+,\d+)\s+(-?\d+,\d+)\s+(-?\d+,\d+)\s+(REPROVADO|APROVADO)"
+    busca = re.search(padrao, texto)
+    if busca:
+        erro_ativa_cn, erro_ativa_ci, erro_ativa_cp, resultado_exatidao_ativa = busca.groups()
+ 
+        # Análise de indício de fraude: REPROVADO se algum erro passar do limite
+        valores_erro = [
+            float(valor.replace(",", "."))
+            for valor in (erro_ativa_cn, erro_ativa_ci, erro_ativa_cp)
+        ]
+        if any(abs(valor) > LIMITE_ERRO_FRAUDE for valor in valores_erro):
+            analise_indicador_fraude = "REPROVADO"
+        else:
+            analise_indicador_fraude = "APROVADO"
+
+
+    # Resultados dos ensaios
+    integridade_lacre = pegar_resultado(texto, "Integridade dos Lacres")
+    inspecao_geral = pegar_resultado(texto, "Inspeção Geral Medidor")
+    correspondencia_mod = pegar_resultado(texto, "Correspondencia Mod.Aprovado")
+    ensaio_de_marcha = pegar_resultado(texto, "Ensaio de Marcha em Vazio")
+
+ 
+    # Linha da tabela
+    return {
+        "arquivo": arquivo_pdf.name,
+        "uc": uc,
+        "ordem_servico": ordem_serv,
+        "dt_retirada": dt_retirada,
+        "data_ensaio": data_ensaio,
+        "integridade_lacres": integridade_lacre,
+        "inspecao_geral_medidor": inspecao_geral,
+        "correspondencia_mod_aprovado": correspondencia_mod,
+        "ensaio_marcha_vazio": ensaio_de_marcha,
+        "erro_ativa_cn": erro_ativa_cn,
+        "erro_ativa_ci": erro_ativa_ci,
+        "erro_ativa_cp": erro_ativa_cp,
+        "resultado_exatidao_ativa": resultado_exatidao_ativa,
+        "analise_indicador_fraude": analise_indicador_fraude,
+    }
+
+
+# Percorrer todos os PDFs da pasta
+laudos, erros = [], []
+ 
+for arquivo_pdf in sorted(pasta_brutos.glob("*.pdf")):
+    try:
+        laudos.append(extrair_laudo(arquivo_pdf))
+    except Exception as e:
+        erros.append({"arquivo": arquivo_pdf.name, "erro": str(e)})
+ 
+df_laudos = pd.DataFrame(laudos)
+df_erros = pd.DataFrame(erros)
+
 
 # Mostrar resultado
-print(df.to_string(index=False))
+print(df_laudos.to_string(index=False))
 
+if not df_erros.empty:
+    print("\nPDFs com erro na leitura:")
+    print(df_erros.to_string(index=False))
 
+# Salvar a tabela em CSV dentro de dados/amostra
+pasta_amostra = pasta_dados / "amostra"
+pasta_amostra.mkdir(exist_ok=True)   # cria a pasta se ela ainda não existir
 
+#df_laudos.to_csv(
+#    pasta_amostra / "laudos.csv",
+#    index=False,
+#    sep=";",
+#    encoding="utf-8-sig",
+#)
 
 
