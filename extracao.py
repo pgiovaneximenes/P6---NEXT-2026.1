@@ -58,6 +58,7 @@ def extrair_laudo(arquivo_pdf):
     erro_ativa_cp = ""
     resultado_exatidao_ativa = ""
     analise_indicador_fraude = ""
+    anomalias = ""
 
     
     # Leitura do PDF
@@ -102,6 +103,20 @@ def extrair_laudo(arquivo_pdf):
     correspondencia_mod = pegar_resultado(texto, "Correspondencia Mod.Aprovado")
     ensaio_de_marcha = pegar_resultado(texto, "Ensaio de Marcha em Vazio")
 
+    # Anomalias: texto entre o título da seção 6 e o da seção 7
+    busca_anomalias = re.search(
+        r"6\. Anomalia\(s\) Encontrada\(s\) - Descrição:\s*(.*?)\s*7\. Evidências",
+        texto,
+        re.DOTALL,
+    )
+    if busca_anomalias:
+        itens = [
+            linha.strip()
+            for linha in busca_anomalias.group(1).splitlines()
+            if linha.strip()
+        ]
+        anomalias = " | ".join(itens)
+
  
     # Linha da tabela
     return {
@@ -119,6 +134,7 @@ def extrair_laudo(arquivo_pdf):
         "erro_ativa_cp": erro_ativa_cp,
         "resultado_exatidao_ativa": resultado_exatidao_ativa,
         "analise_indicador_fraude": analise_indicador_fraude,
+        "anomalias": anomalias
     }
 
 
