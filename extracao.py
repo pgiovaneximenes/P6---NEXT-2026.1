@@ -37,8 +37,9 @@ def pegar_resultado(texto, rotulo):
     busca = re.search(re.escape(rotulo) + r"\s*(REPROVADO|APROVADO)", texto)
     return busca.group(1) if busca else ""
 
-# O ensaio de exatidão é considerado reprovado
-LIMITE_ERRO_FRAUDE = 15
+# Limite provisório para análise exploratória.
+# Deve ser validado com a área demandante.
+LIMITE_ERRO_ANALISE = 15
 
 
 # Palavras-chave das anomalias (escritas sem acento e em minúsculas).
@@ -56,10 +57,10 @@ ANOMALIAS_DEFEITO = [
 ]
  
 # Textos da classificação final
-SEM_INDICIO = "Sem indício de fraude ou defeito"
-INDICIO_FRAUDE = "Forte indício de fraude"
-INDICIO_DEFEITO = "Forte indício de defeito no medidor"
-ANALISE_MANUAL = "Indício de fraude ou defeito - análise manual"
+SEM_INDICIO = "Sem indício identificado"
+INDICIO_FRAUDE = "Possível fraude/manipulação"
+INDICIO_DEFEITO = "Possível defeito"
+ANALISE_MANUAL = "Revisão manual"
 
 
 
@@ -81,7 +82,7 @@ def extrair_laudo(arquivo_pdf):
     resultado_exatidao_ativa = ""
     analise_exatidao = ""
     anomalias = ""
-
+    conclusao = ""
     
     # Leitura do PDF
     texto = ler_texto(arquivo_pdf)
@@ -113,7 +114,7 @@ def extrair_laudo(arquivo_pdf):
             float(valor.replace(",", "."))
             for valor in (erro_ativa_cn, erro_ativa_ci, erro_ativa_cp)
         ]
-        if any(abs(valor) > LIMITE_ERRO_FRAUDE for valor in valores_erro):
+        if any(abs(valor) > LIMITE_ERRO_ANALISE for valor in valores_erro):
             analise_exatidao = "REPROVADO"
         else:
             analise_exatidao = "APROVADO"
@@ -139,7 +140,20 @@ def extrair_laudo(arquivo_pdf):
         ]
         anomalias = " | ".join(itens)
 
- 
+    # Conclusão: texto entre a seção 8 e "Observações Complementares"
+    busca_conclusao = re.search(
+        r"8\.\s*Conclusão:\s*(.*?)\s*Observações Complementares",
+        texto,
+        re.DOTALL,
+    )
+
+    if busca_conclusao:
+        conclusao = " ".join(
+            linha.strip()
+            for linha in busca_conclusao.group(1).splitlines()
+            if linha.strip()
+        )
+
     # Linha da tabela
     return {
         "arquivo": arquivo_pdf.name,
@@ -156,7 +170,8 @@ def extrair_laudo(arquivo_pdf):
         "erro_ativa_cp": erro_ativa_cp,
         "resultado_exatidao_ativa": resultado_exatidao_ativa,
         "analise_exatidao": analise_exatidao,
-        "anomalias": anomalias
+        "anomalias": anomalias,
+        "conclusao": conclusao
     }
 
 # Função para padronizar o texto: minúsculas e sem acento
@@ -195,7 +210,7 @@ def classificar_laudo(laudo):
     # Passo 2: algum ensaio diferente de aprovado -> olha a exatidão
     exatidao = laudo["analise_exatidao"]
     if exatidao == "REPROVADO":
-        motivo = f"Ensaio reprovado e erro de exatidão acima de {LIMITE_ERRO_FRAUDE}%"
+        motivo = f"Ensaio reprovado e erro de exatidão acima de {LIMITE_ERRO_ANALISE}%"
     elif exatidao == "APROVADO":
         motivo = "Ensaio reprovado com exatidão dentro da tolerância"
     else:
