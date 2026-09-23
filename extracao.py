@@ -38,6 +38,7 @@ if resultado:
 #Definição das variáveis
 uc = ""
 ordem_serv = ""
+data_retirada = ""
 Integridade_lacre = ""
 Correspondencia_Mod = ""
 Inspeção_geral = ""
@@ -67,6 +68,9 @@ for i, linha in enumerate(linhas):
     if "Ordem de Serviço" in linha:
         ordem_serv = linhas[i + 1]
 
+    if "Dt. Retirada" in linha:
+        data_retirada = linhas[i + 1]
+
     if "Integridade dos Lacres" in linha:
         Integridade_lacre = pegar_resultado(linha)
 
@@ -84,6 +88,7 @@ for i, linha in enumerate(linhas):
 dados = {
     "uc": [uc],
     "Ordem de Serviço": [ordem_serv],
+    "Data de Retirada": [data_retirada],
     "Integridade dos Lacres": [Integridade_lacre],
     "Correspondência do Modelo": [Correspondencia_Mod],
     "Inspeção Geral": [Inspeção_Geral],
