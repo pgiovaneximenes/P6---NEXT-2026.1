@@ -5,6 +5,7 @@ from pypdf import PdfReader
 from pathlib import Path
 import re
 import unicodedata
+from datetime import datetime
 
 
 pasta_script = Path(__file__).resolve().parent
@@ -29,6 +30,43 @@ def linha_seguinte(linhas, rotulo):
                 return linhas[i + 1].strip()
     return ""
 
+def extrair_data(texto, rotulo):
+    padrao = re.search(
+        re.escape(rotulo) + r"(.*?)(?=\n|$)",
+        texto,
+        re.IGNORECASE
+    )
+
+    if not padrao:
+        return "", "NÃO ENCONTRADA"
+
+    trecho = padrao.group(1).strip()
+
+    # Corrige possível separação indevida do primeiro dígito do dia.
+    # Exemplo: "1 8/11/2030" -> "18/11/2030"
+    trecho = re.sub(
+        r"(?<=\d)\s+(?=\d/)",
+        "",
+        trecho
+    )
+
+    busca_data = re.search(
+        r"\b(\d{1,2}/\d{1,2}/\d{4})\b",
+        trecho
+    )
+
+    if not busca_data:
+        return trecho, "FORMATO INVÁLIDO"
+
+    data = busca_data.group(1)
+
+    try:
+        datetime.strptime(data, "%d/%m/%Y")
+        return data, "OK"
+    except ValueError:
+        return data, "DATA INVÁLIDA"
+
+    
 # Função para pegar o resultado logo depois do rótulo. 
 # Pega apenas a palavra que vem imediatamente após o rótulo, para não trazer o resultado de outro ensaio caso duas linhas venham coladas.
 
@@ -97,10 +135,10 @@ def extrair_laudo(arquivo_pdf):
     dt_retirada = linha_seguinte(linhas, "Dt. Retirada")
  
     # Data do Ensaio: o valor vem na mesma linha, logo após o rótulo
-    for linha in linhas:
-        if "Data do Ensaio" in linha:
-            data_ensaio = linha.split("Data do Ensaio", 1)[1].strip()
-            break
+    data_ensaio, validacao_data_ensaio = extrair_data(
+    texto,
+    "Data do Ensaio"
+)
 
 
     # Ensaio de Exatidão - Energia Ativa: erros de CN, CI e CP e o resultado do laudo
@@ -142,18 +180,19 @@ def extrair_laudo(arquivo_pdf):
 
     # Conclusão: texto entre a seção 8 e "Observações Complementares"
     busca_conclusao = re.search(
-        r"8\.\s*Conclusão:\s*(.*?)\s*Observações Complementares",
-        texto,
-        re.DOTALL,
-    )
-
+    r"Observações Complementares\s*"
+    r"(?:Inexistente\.)?\s*"
+    r"(.*?)"
+    r"\s*FIM DO RELATÓRIO",
+    texto,
+    re.DOTALL,
+)
     if busca_conclusao:
         conclusao = " ".join(
-            linha.strip()
-            for linha in busca_conclusao.group(1).splitlines()
-            if linha.strip()
-        )
-
+        linha.strip()
+        for linha in busca_conclusao.group(1).splitlines()
+    if linha.strip()
+    )
     # Linha da tabela
     return {
         "arquivo": arquivo_pdf.name,
@@ -161,6 +200,7 @@ def extrair_laudo(arquivo_pdf):
         "ordem_servico": ordem_serv,
         "dt_retirada": dt_retirada,
         "data_ensaio": data_ensaio,
+        "validacao_data_ensaio": validacao_data_ensaio,
         "integridade_lacres": integridade_lacre,
         "inspecao_geral_medidor": inspecao_geral,
         "correspondencia_mod_aprovado": correspondencia_mod,
