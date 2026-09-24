@@ -190,14 +190,10 @@ PDFs que não puderam ser lidos (por exemplo, escaneados, sem texto) aparecem na
 
 ## Limitações conhecidas e próximos passos
 
-- **Base fictícia:** os laudos atuais são simulados. A regra precisa ser recalibrada com a amostra real de 12 meses.
 - **Registros existentes não são atualizados:** se a regra mudar, os laudos já gravados mantêm a classificação antiga. Para reclassificar, limpe a tabela (`TRUNCATE laudos;`) e rode o script novamente.
 - **Ordem de serviço em branco:** ainda não é rejeitada na validação de entrada.
 - **Datas armazenadas como texto:** a conversão para `DATE`/`TIMESTAMP` facilitaria filtros por período.
 - **PDFs escaneados:** não são suportados (não há OCR).
-## Dados e privacidade
-
-Laudos reais contêm dados de unidades consumidoras. **Não versione PDFs reais nem o CSV gerado a partir deles.** Quando a amostra real chegar, inclua `dados/brutos/` e `dados/amostra/` no `.gitignore`.
 
 ---
 
