@@ -1,5 +1,5 @@
 requests==2.32.3
 pandas==2.2.3
-psycopg2-binary==2.9.10
+psycopg[binary]
 pymongo==4.10.1
 pypdf==5.1.0
