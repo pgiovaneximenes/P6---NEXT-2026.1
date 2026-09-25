@@ -1,5 +1,7 @@
 import re
 import unicodedata
+import pandas as pd
+import psycopg
 
 
 # ============================================================
@@ -13,10 +15,6 @@ INDICIO_FRAUDE = "Possível fraude/manipulação"
 INDICIO_DEFEITO = "Possível defeito"
 ANALISE_MANUAL = "Revisão manual"
 
-
-# ============================================================
-# PADRÕES DE ANOMALIAS
-# ============================================================
 
 ANOMALIAS_FRAUDE = [
     r"tampa.*forcad",
@@ -36,17 +34,14 @@ ANOMALIAS_DEFEITO = [
 # ============================================================
 
 def normalizar(texto):
-    """
-    Coloca o texto em minúsculas e remove acentos.
-
-    Exemplo:
-    'Tampa Forçada' -> 'tampa forcada'
-    """
 
     if not texto:
         return ""
 
-    texto = unicodedata.normalize("NFKD", texto.lower())
+    texto = unicodedata.normalize(
+        "NFKD",
+        str(texto).lower()
+    )
 
     return "".join(
         caractere
@@ -55,40 +50,30 @@ def normalizar(texto):
     )
 
 
-def encontrar_anomalia(anomalias, lista_padroes):
-    """
-    Procura uma anomalia que corresponda a algum dos padrões.
-
-    Retorna:
-        - texto da anomalia encontrada
-        - None caso nenhuma seja encontrada
-    """
+def encontrar_anomalia(
+    anomalias,
+    lista_padroes
+):
 
     if not anomalias:
         return None
 
     for anomalia in anomalias.split(" | "):
 
-        anomalia_normalizada = normalizar(anomalia)
+        texto = normalizar(anomalia)
 
         for padrao in lista_padroes:
 
-            if re.search(padrao, anomalia_normalizada):
+            if re.search(
+                padrao,
+                texto
+            ):
                 return anomalia.strip()
 
     return None
 
 
 def maior_erro_exatidao(laudo):
-    """
-    Identifica o maior erro absoluto entre CN, CI e CP.
-
-    Retorna:
-        (ensaio, valor)
-
-    Exemplo:
-        ('CI', -18.5)
-    """
 
     erros = {
         "CN": laudo.get("erro_ativa_cn"),
@@ -114,19 +99,10 @@ def maior_erro_exatidao(laudo):
 
 
 # ============================================================
-# ANÁLISE DA EXATIDÃO
+# EXATIDÃO
 # ============================================================
 
 def analisar_exatidao(laudo):
-    """
-    Verifica os erros de exatidão ativa.
-
-    Se qualquer erro absoluto for maior que 15%:
-        -> REPROVADO
-
-    Caso contrário:
-        -> APROVADO
-    """
 
     erros = [
         laudo.get("erro_ativa_cn"),
@@ -135,51 +111,28 @@ def analisar_exatidao(laudo):
     ]
 
     erros_validos = [
-        erro for erro in erros
+        erro
+        for erro in erros
         if erro is not None
     ]
 
     if not erros_validos:
         return None
 
-    if any(abs(erro) > LIMITE_ERRO_ANALISE for erro in erros_validos):
+    if any(
+        abs(erro) > LIMITE_ERRO_ANALISE
+        for erro in erros_validos
+    ):
         return "REPROVADO"
 
     return "APROVADO"
 
 
 # ============================================================
-# CLASSIFICAÇÃO DO LAUDO
+# CLASSIFICAÇÃO
 # ============================================================
 
 def classificar_laudo(laudo):
-    """
-    Classifica o laudo seguindo a ordem definida no projeto.
-
-    Regra 1:
-        Se os 4 ensaios qualitativos forem APROVADO:
-            -> Sem indício identificado
-
-    Regra 2:
-        Caso contrário, analisa a exatidão.
-
-    Regra 3:
-        Procura anomalias de fraude.
-
-    Regra 4:
-        Caso não seja fraude, procura anomalias de defeito.
-
-    Regra 5:
-        Caso nenhuma anomalia conhecida seja encontrada:
-            -> Revisão manual
-
-    Retorna:
-        classificacao, motivo
-    """
-
-    # --------------------------------------------------------
-    # 1. ENSAIOS QUALITATIVOS
-    # --------------------------------------------------------
 
     ensaios = [
         laudo.get("integridade_lacres"),
@@ -188,102 +141,87 @@ def classificar_laudo(laudo):
         laudo.get("ensaio_marcha_vazio"),
     ]
 
-    if all(ensaio == "APROVADO" for ensaio in ensaios):
-
+    if all(
+        ensaio == "APROVADO"
+        for ensaio in ensaios
+    ):
         return (
             SEM_INDICIO,
             "Os 4 ensaios qualitativos foram aprovados"
         )
 
-    # --------------------------------------------------------
-    # 2. EXATIDÃO
-    # --------------------------------------------------------
+    exatidao = laudo.get(
+        "analise_exatidao"
+    )
 
-    exatidao = laudo.get("analise_exatidao")
-
-    # Caso o campo ainda não tenha sido calculado
     if exatidao is None:
-        exatidao = analisar_exatidao(laudo)
+        exatidao = analisar_exatidao(
+            laudo
+        )
 
     if exatidao == "REPROVADO":
 
-        ensaio, erro = maior_erro_exatidao(laudo)
+        ensaio, erro = maior_erro_exatidao(
+            laudo
+        )
 
-        if ensaio is not None:
+        if ensaio:
 
             motivo_exatidao = (
-                f"Ensaio reprovado e erro de exatidão acima de "
+                f"Erro acima de "
                 f"{LIMITE_ERRO_ANALISE}% "
-                f"(maior erro: {ensaio} = {erro:.2f}%)"
+                f"({ensaio} = {erro:.2f}%)"
             )
 
         else:
 
             motivo_exatidao = (
-                f"Ensaio reprovado e erro de exatidão acima de "
-                f"{LIMITE_ERRO_ANALISE}%"
+                "Erro acima do limite"
             )
 
     elif exatidao == "APROVADO":
 
         motivo_exatidao = (
-            "Ensaio reprovado com exatidão dentro da tolerância"
+            "Exatidão dentro da tolerância"
         )
 
     else:
 
         motivo_exatidao = (
-            "Ensaio reprovado e exatidão sem valores"
+            "Exatidão sem valores"
         )
-
-    # --------------------------------------------------------
-    # 3. ANOMALIA DE FRAUDE
-    # --------------------------------------------------------
 
     anomalia_fraude = encontrar_anomalia(
         laudo.get("anomalias", ""),
-        ANOMALIAS_FRAUDE
+        ANOMALIAS_FRAUDE,
     )
 
     if anomalia_fraude:
 
-        motivo = (
+        return (
+            INDICIO_FRAUDE,
             f"{motivo_exatidao}; "
-            f"anomalia de fraude encontrada: "
             f"{anomalia_fraude}"
         )
 
-        return INDICIO_FRAUDE, motivo
-
-    # --------------------------------------------------------
-    # 4. ANOMALIA DE DEFEITO
-    # --------------------------------------------------------
-
     anomalia_defeito = encontrar_anomalia(
         laudo.get("anomalias", ""),
-        ANOMALIAS_DEFEITO
+        ANOMALIAS_DEFEITO,
     )
 
     if anomalia_defeito:
 
-        motivo = (
+        return (
+            INDICIO_DEFEITO,
             f"{motivo_exatidao}; "
-            f"anomalia de defeito encontrada: "
             f"{anomalia_defeito}"
         )
 
-        return INDICIO_DEFEITO, motivo
-
-    # --------------------------------------------------------
-    # 5. NENHUMA ANOMALIA RECONHECIDA
-    # --------------------------------------------------------
-
-    motivo = (
+    return (
+        ANALISE_MANUAL,
         f"{motivo_exatidao}; "
         "nenhuma anomalia reconhecida"
     )
-
-    return ANALISE_MANUAL, motivo
 
 
 # ============================================================
@@ -291,56 +229,52 @@ def classificar_laudo(laudo):
 # ============================================================
 
 def calcular_prioridade(laudo):
-    """
-    Identifica o maior erro absoluto de exatidão.
 
-    Esta função NÃO altera a classificação.
+    classificacao = laudo.get(
+        "classificacao"
+    )
 
-    Ela pode ser utilizada posteriormente para
-    ordenar os casos de possível fraude.
-    """
-
-    classificacao = laudo.get("classificacao")
-
-    if classificacao != INDICIO_FRAUDE:
-        return None
-
-    ensaio, erro = maior_erro_exatidao(laudo)
-
-    if erro is None:
-        return None
-
-    return abs(erro)
-
-
-# ============================================================
-# TESTE MANUAL
-# ============================================================
-
-if __name__ == "__main__":
-
-    laudo_teste = {
-        "integridade_lacres": "REPROVADO",
-        "inspecao_geral_medidor": "APROVADO",
-        "correspondencia_mod_aprovado": "APROVADO",
-        "ensaio_marcha_vazio": "APROVADO",
-
-        "erro_ativa_cn": 2.5,
-        "erro_ativa_ci": -18.7,
-        "erro_ativa_cp": 4.2,
-
-        "analise_exatidao": "REPROVADO",
-
-        "anomalias": "Tampa forçada",
+    peso = {
+        INDICIO_FRAUDE: 300,
+        INDICIO_DEFEITO: 200,
+        ANALISE_MANUAL: 100,
+        SEM_INDICIO: 0
     }
 
-    classificacao, motivo = classificar_laudo(laudo_teste)
-
-    laudo_teste["classificacao"] = classificacao
-
-    print("Classificação:", classificacao)
-    print("Motivo:", motivo)
-    print(
-        "Prioridade:",
-        calcular_prioridade(laudo_teste)
+    prioridade = peso.get(
+        classificacao,
+        0
     )
+
+    _, erro = maior_erro_exatidao(
+        laudo
+    )
+
+    if erro is not None:
+        prioridade += abs(erro)
+
+    return round(prioridade, 2)
+
+
+# ============================================================
+# LEITURA DO BANCO
+# ============================================================
+
+def carregar_laudos():
+
+    conexao = psycopg.connect(
+        host="localhost",
+        port=5432,
+        dbname="triagem_laudos",
+        user="postgres",
+        password="123"
+    )
+
+    df = pd.read_sql_query(
+        "SELECT * FROM laudos",
+        conexao
+    )
+
+    conexao.close()
+
+    return df
