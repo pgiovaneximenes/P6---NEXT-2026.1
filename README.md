@@ -10,12 +10,21 @@ Projeto do módulo M6 — Experiência Prática do programa **NExT Carreira em D
 
 A área demandante recebe laudos de laboratório sobre medidores retirados de campo. Hoje a triagem é manual: alguém abre cada PDF, lê os ensaios e decide se o caso indica fraude, defeito ou nada. O objetivo do projeto é transformar essa leitura em uma **regra escrita e reproduzível**, aplicada automaticamente, para que o analista comece pelos casos de maior impacto.
 
+## Problema e dados
+
+A triagem dos laudos de aferição de medidores é realizada manualmente, envolvendo a leitura dos resultados dos ensaios, identificação de anomalias e classificação dos casos. O projeto busca automatizar parte dessa análise a partir dos laudos em PDF, apoiando a classificação e a priorização dos casos para análise.
+
+Os dados de entrada são laudos de aferição em PDF, contendo informações de identificação, resultados dos ensaios, erros de energia ativa, anomalias e conclusão do laboratório.
+
+A documentação detalhada sobre o problema, perguntas analíticas, fonte dos dados, regras de negócio, validações, limitações e dicionário de dados está em `docs/01_problema_e_dados.md`.
+
 ## Entregas
 
 | Entrega | Onde está |
 |---|---|
 | Regra de classificação escrita | Seção [Regra de classificação](#regra-de-classificação) e função `classificar_laudo()` em `extracao.py` |
 | Pipeline com validação na entrada | `extracao.py` |
+| Problema, perguntas analíticas e documentação dos dados | `docs/01_problema_e_dados.md` |
 
 
 ---
