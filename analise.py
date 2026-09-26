@@ -50,24 +50,17 @@ def normalizar(texto):
     )
 
 
-def encontrar_anomalia(
-    anomalias,
-    lista_padroes
-):
+def encontrar_anomalia(anomalias, lista_padroes):
 
-    if not anomalias:
+    if anomalias is None or pd.isna(anomalias):
         return None
 
-    for anomalia in anomalias.split(" | "):
+    for anomalia in str(anomalias).split(" | "):
 
         texto = normalizar(anomalia)
 
         for padrao in lista_padroes:
-
-            if re.search(
-                padrao,
-                texto
-            ):
+            if re.search(padrao, texto):
                 return anomalia.strip()
 
     return None
@@ -82,9 +75,9 @@ def maior_erro_exatidao(laudo):
     }
 
     erros_validos = {
-        ensaio: erro
+        ensaio: float(erro)
         for ensaio, erro in erros.items()
-        if erro is not None
+        if erro is not None and not pd.isna(erro)
     }
 
     if not erros_validos:
@@ -97,6 +90,12 @@ def maior_erro_exatidao(laudo):
 
     return ensaio, erros_validos[ensaio]
 
+def status_aprovado(valor):
+
+    if valor is None or pd.isna(valor):
+        return False
+
+    return normalizar(valor).strip() == "aprovado"
 
 # ============================================================
 # EXATIDÃO
@@ -111,16 +110,16 @@ def analisar_exatidao(laudo):
     ]
 
     erros_validos = [
-        erro
+        float(erro)
         for erro in erros
-        if erro is not None
+        if erro is not None and not pd.isna(erro)
     ]
 
     if not erros_validos:
         return None
 
     if any(
-        abs(erro) > LIMITE_ERRO_ANALISE
+        abs(erro) >= LIMITE_ERRO_ANALISE
         for erro in erros_validos
     ):
         return "REPROVADO"
@@ -141,14 +140,14 @@ def classificar_laudo(laudo):
         laudo.get("ensaio_marcha_vazio"),
     ]
 
-    if all(
-        ensaio == "APROVADO"
+    qualitativos_aprovados = all(
+        status_aprovado(ensaio)
         for ensaio in ensaios
-    ):
-        return (
-            SEM_INDICIO,
-            "Os 4 ensaios qualitativos foram aprovados"
-        )
+    )
+
+    # ========================================================
+    # EXATIDÃO
+    # ========================================================
 
     exatidao = laudo.get(
         "analise_exatidao"
@@ -191,6 +190,10 @@ def classificar_laudo(laudo):
             "Exatidão sem valores"
         )
 
+    # ========================================================
+    # ANOMALIAS
+    # ========================================================
+
     anomalia_fraude = encontrar_anomalia(
         laudo.get("anomalias", ""),
         ANOMALIAS_FRAUDE,
@@ -217,12 +220,35 @@ def classificar_laudo(laudo):
             f"{anomalia_defeito}"
         )
 
+    # ========================================================
+    # SEM INDÍCIO
+    # ========================================================
+
+    if qualitativos_aprovados and exatidao == "APROVADO":
+
+        return (
+            SEM_INDICIO,
+            "Os 4 ensaios qualitativos foram aprovados; "
+            "exatidão dentro da tolerância"
+        )
+
+    # ========================================================
+    # REVISÃO MANUAL
+    # ========================================================
+
+    if qualitativos_aprovados:
+
+        return (
+            ANALISE_MANUAL,
+            f"{motivo_exatidao}; "
+            "nenhuma anomalia reconhecida"
+        )
+
     return (
         ANALISE_MANUAL,
         f"{motivo_exatidao}; "
-        "nenhuma anomalia reconhecida"
+        "um ou mais ensaios qualitativos não foram aprovados"
     )
-
 
 # ============================================================
 # PRIORIDADE
