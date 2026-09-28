@@ -43,9 +43,9 @@ Tomador de decisão: Analista de Perdas
 
 | # | Pergunta | Que decisão ela informa? | Respondível com os dados? (verificado na amostra) |
 |---|---|---|---|
-| 1 |Quais combinações dos resultados dos ensaios e ocorrências de campo estão mais associadas a indício de fraude ou indício de defeito |Validar a regra de classificação | |
-| 2 |Qual o volume e a idade dos laudos não analisados e qual o impacto financeiro associado a essa fila |Definir a prioridade de análise | |
-| 3 |Qual o impacto financeiro estimado das reclassificações no período |Medir o potencial de resultado | |
+| 1 |Quais combinações dos resultados dos ensaios e ocorrências de campo estão mais associadas a indício de fraude ou indício de defeito |Validar a regra de classificação |Sim |
+| 2 |Em quantos casos a classificação realizada pela solução é diferente da classificação feita manualmente pelo analista? |Avaliar a aderência da classificação da solução e identificar pontos que precisam de ajuste |Sim |
+| 3 |Quais anomalias aparecem com maior frequência nos casos classificados como possível fraude? |Identificar as principais ocorrências relacionadas aos casos de possível fraude e apoiar a validação das regras |Sim |
 
 
 ---
