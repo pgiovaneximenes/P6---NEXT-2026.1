@@ -211,6 +211,7 @@ PDFs que não puderam ser lidos (por exemplo, escaneados, sem texto) aparecem na
 | Amanda Conceição | [@amanda87eng-ship-it](https://github.com/amanda87eng-ship-it) |
 | Maria Clara | [@mclarabritocarvalho-ship-it](https://github.com/mclarabritocarvalho-ship-it) |
 | Carol Martir| [@acarolmartir-dotcom](https://github.com/acarolmartir-dotcom) |
+| Victor Silva | [@Victor-CSilva](https://github.com/Victor-CSilva) |
 
 
 |  |  |
