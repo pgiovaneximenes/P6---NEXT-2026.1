@@ -11,8 +11,10 @@ import psycopg
 LIMITE_ERRO_ANALISE = 15
 
 SEM_INDICIO = "Sem indício identificado"
-INDICIO_FRAUDE = "Possível fraude/manipulação"
-INDICIO_DEFEITO = "Possível defeito"
+FRAUDE_EVIDENCIADA = "Possível fraude/manipulação (corroborada tecnicamente)"
+FRAUDE_SUSPEITA_TEXTUAL = "Possível fraude/manipulação (indício apenas textual)"
+DEFEITO_EVIDENCIADO = "Possível defeito (corroborado tecnicamente)"
+DEFEITO_SUSPEITA_TEXTUAL = "Possível defeito (indício apenas textual)"
 ANALISE_MANUAL = "Revisão manual"
 
 
@@ -190,6 +192,12 @@ def classificar_laudo(laudo):
             "Exatidão sem valores"
         )
 
+    evidencia_tecnica = (
+        not qualitativos_aprovados
+    ) or (
+        exatidao == "REPROVADO"
+    )
+
     # ========================================================
     # ANOMALIAS
     # ========================================================
@@ -201,8 +209,14 @@ def classificar_laudo(laudo):
 
     if anomalia_fraude:
 
+        nivel = (
+            FRAUDE_EVIDENCIADA
+            if evidencia_tecnica
+            else FRAUDE_SUSPEITA_TEXTUAL
+        )
+
         return (
-            INDICIO_FRAUDE,
+            nivel,
             f"{motivo_exatidao}; "
             f"{anomalia_fraude}"
         )
@@ -214,8 +228,14 @@ def classificar_laudo(laudo):
 
     if anomalia_defeito:
 
+        nivel = (
+            DEFEITO_EVIDENCIADO
+            if evidencia_tecnica
+            else DEFEITO_SUSPEITA_TEXTUAL
+        )
+
         return (
-            INDICIO_DEFEITO,
+            nivel,
             f"{motivo_exatidao}; "
             f"{anomalia_defeito}"
         )
@@ -261,8 +281,10 @@ def calcular_prioridade(laudo):
     )
 
     peso = {
-        INDICIO_FRAUDE: 300,
-        INDICIO_DEFEITO: 200,
+        FRAUDE_EVIDENCIADA: 400,
+        FRAUDE_SUSPEITA_TEXTUAL: 300,
+        DEFEITO_EVIDENCIADO: 250,
+        DEFEITO_SUSPEITA_TEXTUAL: 200,
         ANALISE_MANUAL: 100,
         SEM_INDICIO: 0
     }
