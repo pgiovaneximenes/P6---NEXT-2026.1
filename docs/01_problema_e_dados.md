@@ -130,7 +130,7 @@ Casos que não possam ser classificados de forma segura pelas regras estabelecid
 
 ## 1.8 Priorização
 
-O pipeline já possui uma função para calcular a prioridade dos casos de possível fraude com base na maior discrepância absoluta. A ordenação da fila deve ser verificada na etapa de integração/análise.
+O pipeline possui uma função para calcular a prioridade dos casos de possível fraude/manipulação com base na maior discrepância absoluta entre os ensaios CN, CI e CP. A ordenação da fila deve ser verificada na etapa de integração/análise.
 
 ## 1.9 Validações dos dados
 
@@ -192,12 +192,21 @@ O dicionário abaixo descreve os principais campos identificados nos laudos de a
 
 ### Resultados dos ensaios
 
-| Campo                             | Tipo       | Valores esperados                    | Utilização                             |
-| --------------------------------- | ---------- | ------------------------------------ | -------------------------------------- |
-| **Integridade dos Lacres**        | Categórico | APROVADO / REPROVADO                 | Verificação de irregularidade          |
-| **Inspeção Geral do Medidor**     | Categórico | APROVADO / REPROVADO                 | Classificação                          |
-| **Correspondência Mod. Aprovado** | Categórico | APROVADO / REPROVADO                 | Classificação                          |
-| **Ensaio de Marcha em Vazio**     | Categórico | APROVADO / REPROVADO / NÃO REALIZADO | Classificação e necessidade de análise |
+### Resultados dos ensaios
+
+| Campo | Tipo | Valores esperados | Utilização 
+|
+| --------------------------------- | ---------- | ------------------------------------ | ---------------------------------- |
+| **Integridade dos Lacres** | Categórico | APROVADO / REPROVADO | Verificação de irregularidade |
+| **Inspeção Geral do Medidor** | Categórico | APROVADO / REPROVADO | Classificação |
+| **Correspondência Mod. Aprovado** | Categórico | APROVADO / REPROVADO | Classificação |
+| **Ensaio de Marcha em Vazio** | Categórico | APROVADO / REPROVADO / NÃO REALIZADO | Classificação e necessidade de análise |
+| **Erro Energia Ativa CN** | Numérico | Valor numérico (%) | Análise da exatidão e priorização |
+| **Erro Energia Ativa CI** | Numérico | Valor numérico (%) | Análise da exatidão e priorização |
+| **Erro Energia Ativa CP** | Numérico | Valor numérico (%) | Análise da exatidão e priorização |
+| **Resultado Exatidão Energia Ativa** | Categórico | APROVADO / REPROVADO / NÃO REALIZADO | Resultado do ensaio de exatidão |
+| **Análise da Exatidão** | Categórico | Resultado da análise considerando o limite de 15% | Apoio à classificação |
+
 
 
 ### Informações para classificação
