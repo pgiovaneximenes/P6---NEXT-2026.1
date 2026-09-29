@@ -23,23 +23,24 @@ A decisão final sobre o tratamento do caso permanece com o analista.
 
 ## 1.3 Objetivo da solução
 
-Automatizar a análise inicial dos laudos de aferição de medidores em formato PDF, permitindo:
+A solução tem como objetivo apoiar a triagem de laudos de medidores por meio da utilização dos dados estruturados disponíveis, permitindo:
 
-- extrair informações relevantes dos documentos;
-- validar informações de identificação;
-- identificar resultados dos ensaios;
-- analisar erros percentuais;
-- identificar anomalias;
-- classificar os laudos em categorias;
-- organizar uma fila de prioridades para análise
+- organizar e validar os dados recebidos;
+- aplicar regras de classificação de indícios de fraude e defeito;
+- identificar os principais resultados dos ensaios e ocorrências;
+- estruturar uma fila priorizada por impacto financeiro;
+- disponibilizar indicadores para apoiar a análise dos casos
 
 ## 1.4 Fonte dos dados
 
-Os dados utilizados no projeto são provenientes de laudos de aferição de medidores fornecidos em formato PDF.
+As fontes de dados previstas para o projeto são:
 
-Os documentos possuem informações de identificação do cliente e do medidor, resultados dos ensaios realizados, valores de erro, descrição de anomalias e conclusão do laboratório.
+- Excel de laudos da prestadora, contendo os campos estruturados disponíveis para análise dos laudos;
+- Base existente da demandante, disponibilizada em banco de dados SQL
 
-A amostra disponibilizada para o desenvolvimento contém laudos com diferentes resultados, incluindo casos aprovados e reprovados.
+As fontes são de acesso interno e foram fornecidas ou serão disponibilizadas pela área demandante.
+
+A amostra e as colunas disponíveis ainda dependem da disponibilização e validação das bases previstas no Canvas do projeto.
 
 ## 1.5 Dados disponíveis
 
@@ -83,13 +84,13 @@ Os dados disponíveis nos PDFs são mais amplos do que os campos atualmente extr
 
 ## 1.6 Perguntas analíticas
 
-A partir dos dados disponíveis, foram definidas as seguintes perguntas:
+As perguntas analíticas definidas no Canvas do projeto são:
 
-1. Como os laudos se distribuem entre as classificações de Possível fraude/manipulação, Possível defeito, Sem indício identificado e Revisão manual?
+1. Quais combinações dos resultados dos ensaios e ocorrências de campo estão mais associadas a indício de fraude ou indício de defeito?
 
-2. Quais resultados dos ensaios e quais tipos de anomalias estão associados às diferentes classificações?
+2. Em quantos casos a classificação realizada pela solução é diferente da classificação feita manualmente pelo analista?
 
-3. Entre os laudos classificados como possível fraude/manipulação, quais apresentam as maiores discrepâncias nos ensaios de energia ativa?
+3. Quais anomalias aparecem com maior frequência nos casos classificados como possível fraude?
 
 ## 1.7 Regras de negócio levantadas
 
@@ -149,16 +150,17 @@ A UC deverá ser padronizada para 12 caracteres, com preenchimento de zeros à e
 
 A Ordem de Serviço também deverá ser utilizada para identificação de possíveis duplicidades.
 
-## 1.10 Limitações e pontos pendentes
+### 1.10 Limitações e pontos pendentes
 
-Alguns pontos ainda dependem de validação com a área demandante:
+Os principais pontos que dependem de validação ou disponibilização pela área demandante são:
 
-- quantidade e formato exatos dos caracteres da Ordem de Serviço;
-- formato esperado do Número do Medidor;
-- lista completa de palavras-chave para identificação de fraude e defeito;
-- disponibilização de uma amostra maior de laudos para testes;
-- validação das regras de classificação com a área responsável;
-- validação da Ordem de Serviço ainda possui uma limitação: registros com OS em branco não são atualmente rejeitados pelo pipeline
+- disponibilização do Excel de laudos da prestadora;
+- disponibilização da base existente da demandante;
+- confirmação das colunas disponíveis nas fontes;
+- disponibilização da amostra dos últimos 12 meses;
+- confirmação da classificação manual realizada pelo analista, necessária para comparação com a classificação da solução;
+- validação das regras de classificação;
+- definição dos critérios de priorização por impacto financeiro
 
 ## 1.11 Dicionário de dados
 
@@ -228,8 +230,21 @@ O dicionário abaixo descreve os principais campos identificados nos laudos de a
 
 ## 1.13 Pontos pendentes com a área demandante
 
-- definição da data de referência para apresentação dos laudos na dashboard: data de retirada do equipamento ou data de realização do ensaio;
-- disponibilização das palavras-chave, expressões ou critérios atualmente utilizados no campo 6 - “Anomalia(s) Encontrada(s) - Descrição” - para identificação de possíveis casos de fraude/manipulação e possível defeito;
-- disponibilização de 3 laudos por mês, idealmente dos últimos 12 meses, contemplando 1 caso de possível fraude, 1 de possível defeito e 1 aprovado;
-- validação das regras de classificação
+- disponibilização do Excel de laudos da prestadora;
+
+- disponibilização da base existente da demandante em SQL/banco;
+
+- confirmação das colunas-chave disponíveis nas bases;
+
+- disponibilização da amostra referente aos últimos 12 meses;
+
+- confirmação da existência da classificação realizada manualmente pelo analista, necessária para comparação com a classificação da solução;
+
+- validação das regras de classificação;
+
+- definição dos critérios de priorização por impacto financeiro;
+
+- disponibilização das palavras-chave, expressões ou critérios atualmente utilizados no campo de anomalias para identificação de possíveis casos de fraude/manipulação e possível defeito;
+
+- definição da data de referência para apresentação dos laudos no dashboard: data de retirada do equipamento ou data de realização do ensaio
 
