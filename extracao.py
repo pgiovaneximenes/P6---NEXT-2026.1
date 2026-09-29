@@ -150,6 +150,7 @@ def inserir_laudo(conexao, laudo):
         laudo["anomalias"],
         laudo["conclusao"],
         laudo["classificacao"],
+        laudo["prioridade"],
         laudo["motivo_classificacao"],
         datetime.now().isoformat()
     ))
