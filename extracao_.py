@@ -164,12 +164,14 @@ def ler_texto(arquivo_pdf):
             conteudo = pagina.extract_text()
             if conteudo:
                 texto.append(conteudo)
+
         texto_final = "\n".join(texto)
 
         if not texto_final.strip():
             raise ValueError("PDF sem texto (pode ser escaneado)")
 
         return texto_final
+
     except Exception as e:
         raise ValueError(f"Erro ao ler o PDF: {e}")
 
@@ -178,13 +180,96 @@ def linha_seguinte(linhas, rotulo):
 
     for i, linha in enumerate(linhas):
 
+        linha_limpa = linha.strip()
+
         if (
-            linha.strip() == rotulo
-            or linha.strip().endswith(" " + rotulo)
+            linha_limpa == rotulo
+            or linha_limpa.endswith(" " + rotulo)
         ):
 
             if i + 1 < len(linhas):
                 return linhas[i + 1].strip()
+
+        # Corrige casos em que o PDF junta o primeiro
+        # caractere do valor ao rótulo.
+        #
+        # Exemplo:
+        # UC1
+        # 23
+        #
+        # Resultado:
+        # 123
+        busca = re.search(
+            re.escape(rotulo) + r"([A-Za-z0-9])$",
+            linha_limpa,
+            re.IGNORECASE
+        )
+
+        if busca:
+
+            parte_valor = busca.group(1)
+
+            if i + 1 < len(linhas):
+
+                proxima_linha = linhas[i + 1].strip()
+
+                if proxima_linha:
+                    return parte_valor + proxima_linha
+
+    return ""
+
+# Função para extrair a Ordem de Serviço
+def extrair_ordem_servico(linhas):
+
+    for i, linha in enumerate(linhas):
+
+        linha_limpa = linha.strip()
+
+        # Caso normal:
+        # Ordem de Serviço
+        # 44660011
+        if linha_limpa == "Ordem de Serviço":
+
+            if i + 1 < len(linhas):
+
+                proxima_linha = linhas[i + 1].strip()
+
+                if re.fullmatch(
+                    r"[A-Za-z0-9]+",
+                    proxima_linha
+                ):
+                    return proxima_linha
+
+        # Caso em que o PDF junta o primeiro dígito
+        # com o texto:
+        #
+        # Ordem de Serviço4
+        # 4660011
+        #
+        # Resultado:
+        # 44660011
+        busca = re.search(
+            r"Ordem\s+de\s+Serviço([A-Za-z0-9]+)",
+            linha_limpa,
+            re.IGNORECASE
+        )
+
+        if busca:
+
+            parte_os = busca.group(1)
+
+            if i + 1 < len(linhas):
+
+                proxima_linha = re.sub(
+                    r"[^A-Za-z0-9]",
+                    "",
+                    linhas[i + 1].strip()
+                )
+
+                if len(parte_os) == 1 and proxima_linha:
+                    return parte_os + proxima_linha
+
+            return parte_os
 
     return ""
 
@@ -235,11 +320,12 @@ def extrair_data(texto, rotulo):
 def pegar_resultado(texto, rotulo):
 
     busca = re.search(
-        re.escape(rotulo) + r"\s*(REPROVADO|APROVADO)",
+        re.escape(rotulo) +
+        r"\s*(REPROVADO|APROVADO|NÃO REALIZADO(?:\s*\(VER ANOMALIA\(S\)\))?)",
         texto
     )
 
-    return busca.group(1) if busca else ""
+    return busca.group(1) if busca else None
 
 
 # Limite provisório para análise exploratória.
@@ -255,15 +341,15 @@ def extrair_laudo(arquivo_pdf):
     ordem_serv = ""
     dt_retirada = ""
     data_ensaio = ""
-    integridade_lacre = ""
-    inspecao_geral = ""
-    correspondencia_mod = ""
-    ensaio_de_marcha = ""
-    erro_ativa_cn = ""
-    erro_ativa_ci = ""
-    erro_ativa_cp = ""
-    resultado_exatidao_ativa = ""
-    analise_exatidao = ""
+    integridade_lacre = None
+    inspecao_geral = None
+    correspondencia_mod = None
+    ensaio_de_marcha = None
+    erro_ativa_cn = None
+    erro_ativa_ci = None
+    erro_ativa_cp = None
+    resultado_exatidao_ativa = None
+    analise_exatidao = None
     anomalias = ""
     conclusao = ""
 
@@ -278,10 +364,8 @@ def extrair_laudo(arquivo_pdf):
     # Dados do cliente
     uc = linha_seguinte(linhas, "UC")
 
-    ordem_serv = linha_seguinte(
-        linhas,
-        "Ordem de Serviço"
-    ).strip()
+    # Ordem de Serviço
+    ordem_serv = extrair_ordem_servico(linhas)
 
     dt_retirada = linha_seguinte(
         linhas,
@@ -354,6 +438,24 @@ def extrair_laudo(arquivo_pdf):
         "Ensaio de Marcha em Vazio"
     )
 
+    # Se não houver valores numéricos de exatidão,
+    # verifica se o resultado foi NÃO REALIZADO.
+    if resultado_exatidao_ativa is None:
+
+        busca_exatidao_nao_realizada = re.search(
+            r"Ensaio de Exatidão - Energia Ativa.*?"
+            r"NÃO REALIZADO(?:\s*\(VER ANOMALIA\(S\)\))?",
+            texto,
+            re.DOTALL
+        )
+
+        if busca_exatidao_nao_realizada:
+
+            resultado_exatidao_ativa = re.search(
+                r"NÃO REALIZADO(?:\s*\(VER ANOMALIA\(S\)\))?",
+                busca_exatidao_nao_realizada.group(0)
+            ).group(0)
+
     # Anomalias
     busca_anomalias = re.search(
         r"6\. Anomalia\(s\) Encontrada\(s\) - Descrição:\s*"
@@ -370,7 +472,10 @@ def extrair_laudo(arquivo_pdf):
             if linha.strip()
         ]
 
-        anomalias = " | ".join(itens)
+        if itens:
+            anomalias = " | ".join(itens)
+        else:
+            anomalias = "Sem anomalias registradas"
 
     # Conclusão
     busca_conclusao = re.search(
@@ -521,6 +626,6 @@ pasta_amostra.mkdir(exist_ok=True)
 df_laudos.to_csv(
     pasta_amostra / "laudos.csv",
     index=False,
-    sep=";",
+    sep=",",
     encoding="utf-8-sig",
 )
