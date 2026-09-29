@@ -5,7 +5,7 @@ import re
 import unicodedata
 from datetime import datetime
 import psycopg
-from analise import classificar_laudo
+from analise import calcular_prioridade, classificar_laudo
 
 #Definição de pastas utilizadas pelo script
 pasta_script = Path(__file__).resolve().parent
@@ -65,6 +65,7 @@ def criar_banco(conexao):
             conclusao TEXT,
 
             classificacao TEXT,
+            prioridade REAL,
             motivo_classificacao TEXT,
 
             data_ingestao TEXT
@@ -119,6 +120,7 @@ def inserir_laudo(conexao, laudo):
             anomalias,
             conclusao,
             classificacao,
+            prioridade,
             motivo_classificacao,
             data_ingestao
         )
@@ -126,7 +128,8 @@ def inserir_laudo(conexao, laudo):
             %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s,
-            %s, %s, %s, %s, %s
+            %s, %s, %s, %s, %s,
+            %s
         )
     """, (
         laudo["ordem_servico"],
@@ -545,7 +548,10 @@ for arquivo_pdf in sorted(
             laudo["motivo_classificacao"]
         ) = classificar_laudo(laudo)
 
-        # 3. Verifica se a Ordem de Serviço já existe
+        # 3. Calcula a prioridade
+        laudo["prioridade"] = calcular_prioridade(laudo)
+
+        # 4. Verifica se a Ordem de Serviço já existe
         if ordem_servico_existe(
             conexao,
             laudo["ordem_servico"]
@@ -560,7 +566,7 @@ for arquivo_pdf in sorted(
 
             continue
 
-        # 4. Insere o novo laudo
+        # 5. Insere o novo laudo
         inserir_laudo(
             conexao,
             laudo
