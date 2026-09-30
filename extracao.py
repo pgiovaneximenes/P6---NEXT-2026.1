@@ -2,10 +2,16 @@ import pandas as pd
 from pypdf import PdfReader
 from pathlib import Path
 import re
+import os
+import hashlib
 import unicodedata
 from datetime import datetime
 import psycopg
-from analise import calcular_prioridade, classificar_laudo
+from analise import (
+    calcular_prioridade,
+    classificar_laudo,
+    LIMITE_ERRO_ANALISE
+)
 
 #Definição de pastas utilizadas pelo script
 pasta_script = Path(__file__).resolve().parent
@@ -41,7 +47,9 @@ def criar_banco(conexao):
         CREATE TABLE IF NOT EXISTS laudos (
             id SERIAL PRIMARY KEY,
 
-            ordem_servico TEXT NOT NULL UNIQUE,
+            hash_arquivo TEXT NOT NULL UNIQUE,
+            ordem_servico TEXT UNIQUE,
+            status_os TEXT,
 
             arquivo TEXT NOT NULL,
             uc TEXT,
@@ -95,6 +103,34 @@ def ordem_servico_existe(conexao, ordem_servico):
 
     return resultado is not None
 
+# Função para calcular o hash (SHA-256) do conteúdo do PDF.
+# O mesmo arquivo gera sempre o mesmo hash, mesmo se renomeado.
+def calcular_hash(arquivo_pdf):
+
+    return hashlib.sha256(
+        arquivo_pdf.read_bytes()
+    ).hexdigest()
+
+# Função para verificar se o arquivo (hash) já consta no banco
+def laudo_existe(conexao, hash_arquivo):
+
+    cursor = conexao.cursor()
+
+    cursor.execute(
+        """
+        SELECT 1
+        FROM laudos
+        WHERE hash_arquivo = %s
+        """,
+        (hash_arquivo,)
+    )
+
+    resultado = cursor.fetchone()
+
+    cursor.close()
+
+    return resultado is not None
+
 # Função para inserir o laudo no banco
 def inserir_laudo(conexao, laudo):
 
@@ -102,7 +138,9 @@ def inserir_laudo(conexao, laudo):
 
     cursor.execute("""
         INSERT INTO laudos (
+            hash_arquivo,
             ordem_servico,
+            status_os,
             arquivo,
             uc,
             dt_retirada,
@@ -129,10 +167,12 @@ def inserir_laudo(conexao, laudo):
             %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s,
-            %s
+            %s, %s, %s
         )
     """, (
+        laudo["hash_arquivo"],
         laudo["ordem_servico"],
+        laudo["status_os"],
         laudo["arquivo"],
         laudo["uc"],
         laudo["dt_retirada"],
@@ -222,7 +262,18 @@ def linha_seguinte(linhas, rotulo):
 
     return ""
 
-# Função para extrair a Ordem de Serviço
+# Função para validar se o valor lido parece uma OS.
+# Evita capturar rótulos vizinhos (ex.: "UF", "ORDEM")
+# quando o campo da OS está vazio no PDF.
+TAMANHO_MINIMO_OS = 6
+
+def os_valida(valor):
+
+    return (
+        bool(re.fullmatch(r"[A-Za-z0-9]+", valor))
+        and any(caractere.isdigit() for caractere in valor)
+        and len(valor) >= TAMANHO_MINIMO_OS
+    )
 def extrair_ordem_servico(linhas):
 
     for i, linha in enumerate(linhas):
@@ -238,10 +289,7 @@ def extrair_ordem_servico(linhas):
 
                 proxima_linha = linhas[i + 1].strip()
 
-                if re.fullmatch(
-                    r"[A-Za-z0-9]+",
-                    proxima_linha
-                ):
+                if os_valida(proxima_linha):
                     return proxima_linha
 
         # Caso em que o PDF junta o primeiro dígito
@@ -270,10 +318,14 @@ def extrair_ordem_servico(linhas):
                     linhas[i + 1].strip()
                 )
 
-                if len(parte_os) == 1 and proxima_linha:
+                if (
+                    len(parte_os) == 1
+                    and os_valida(parte_os + proxima_linha)
+                ):
                     return parte_os + proxima_linha
 
-            return parte_os
+            if os_valida(parte_os):
+                return parte_os
 
     return ""
 
@@ -331,10 +383,6 @@ def pegar_resultado(texto, rotulo):
 
     return busca.group(1) if busca else None
 
-
-# Limite provisório para análise exploratória.
-# Deve ser validado com a área demandante.
-LIMITE_ERRO_ANALISE = 15
 
 
 # Função que lê UM PDF e devolve uma linha da tabela
@@ -503,7 +551,8 @@ def extrair_laudo(arquivo_pdf):
     return {
         "arquivo": arquivo_pdf.name,
         "uc": uc,
-        "ordem_servico": ordem_serv,
+        "ordem_servico": ordem_serv or None,
+        "status_os": "OK" if ordem_serv else "OS AUSENTE",
         "dt_retirada": dt_retirada,
         "data_ensaio": data_ensaio,
         "validacao_data_ensaio": validacao_data_ensaio,
@@ -521,116 +570,151 @@ def extrair_laudo(arquivo_pdf):
     }
 
 # INGESTÃO DOS PDFS
-
+ 
 conexao = conectar_banco()
-
+ 
 # Cria a tabela caso ainda não exista
 criar_banco(conexao)
-
+ 
 laudos = []
 erros = []
-
+ 
 novos = 0
 ignorados = 0
-
+sem_os = 0
+ 
 # Percorre todos os PDFs da pasta brutos
 for arquivo_pdf in sorted(
     pasta_brutos.glob("*.pdf")
 ):
-
+ 
     try:
-
-        # 1. Extrai os dados do PDF
+ 
+        # 1. Verifica pelo hash se o arquivo já foi processado
+        # (feito antes da extração para não ler o PDF à toa)
+        hash_arquivo = calcular_hash(arquivo_pdf)
+ 
+        if laudo_existe(conexao, hash_arquivo):
+ 
+            print(
+                f"IGNORADO - Arquivo já processado: "
+                f"{arquivo_pdf.name}"
+            )
+ 
+            ignorados += 1
+ 
+            continue
+ 
+        # 2. Extrai os dados do PDF
         laudo = extrair_laudo(arquivo_pdf)
-
-        # 2. Classifica o laudo
+        laudo["hash_arquivo"] = hash_arquivo
+ 
+        # 3. Verifica se a mesma OS já existe em outro arquivo
+        # (possível reemissão do laudo)
+        if (
+            laudo["ordem_servico"]
+            and ordem_servico_existe(conexao, laudo["ordem_servico"])
+        ):
+ 
+            erros.append({
+                "arquivo": arquivo_pdf.name,
+                "erro": (
+                    f"OS {laudo['ordem_servico']} já existe em "
+                    f"outro arquivo (possível reemissão)"
+                )
+            })
+ 
+            continue
+ 
+        # 4. Classifica o laudo
         (
             laudo["classificacao"],
             laudo["motivo_classificacao"]
         ) = classificar_laudo(laudo)
-
-        # 3. Calcula a prioridade
+ 
+        # 5. Calcula a prioridade
         laudo["prioridade"] = calcular_prioridade(laudo)
-
-        # 4. Verifica se a Ordem de Serviço já existe
-        if ordem_servico_existe(
-            conexao,
-            laudo["ordem_servico"]
-        ):
-
-            print(
-                f"IGNORADO - Ordem de Serviço já existe: "
-                f"{laudo['ordem_servico']}"
-            )
-
-            ignorados += 1
-
-            continue
-
-        # 5. Insere o novo laudo
+ 
+        # 6. Insere o novo laudo
         inserir_laudo(
             conexao,
             laudo
         )
-
+ 
         print(
-            f"INSERIDO - Ordem de Serviço: "
-            f"{laudo['ordem_servico']}"
+            f"INSERIDO - {arquivo_pdf.name} | "
+            f"OS: {laudo['ordem_servico'] or 'NÃO INFORMADA'}"
         )
-
+ 
         novos += 1
-
+ 
+        if laudo["status_os"] == "OS AUSENTE":
+            sem_os += 1
+ 
         laudos.append(laudo)
-
+ 
     except Exception as e:
-
+ 
         erros.append({
             "arquivo": arquivo_pdf.name,
             "erro": str(e)
         })
-
-
+ 
+ 
 # Confirma as alterações
 conexao.commit()
-
-# Fecha a conexão
-conexao.close()
-
+ 
 # Mostrar resultado da execução
-
+ 
 df_laudos = pd.DataFrame(laudos)
 df_erros = pd.DataFrame(erros)
-
+ 
 # Mostrar novos registros
 if not df_laudos.empty:
-
+ 
     print("\nLaudos novos:")
     print(
-        df_laudos.to_string(index=False)
+        df_laudos.drop(columns=["hash_arquivo"]).to_string(index=False)
     )
-
+ 
 # Mostrar erros
 if not df_erros.empty:
-
-    print("\nPDFs com erro na leitura:")
+ 
+    print("\nPDFs com erro ou pendência:")
     print(
         df_erros.to_string(index=False)
     )
-
+ 
 # Resumo da ingestão
 print("\nResumo da ingestão:")
 print(f"Novos registros: {novos}")
+print(f"  - sem Ordem de Serviço: {sem_os}")
 print(f"Já existentes: {ignorados}")
 print(f"Erros: {len(erros)}")
-
-
-# Salvar a tabela em CSV dentro de dados/amostra
-
+ 
+ 
+# Salvar a tabela completa do banco em CSV dentro de dados/amostra
+# (exporta do banco, e não só os laudos novos desta execução,
+# para o CSV não ser sobrescrito vazio quando não há novidades)
+ 
 pasta_amostra = pasta_dados / "amostra"
 pasta_amostra.mkdir(exist_ok=True)
-
-
-df_laudos.to_csv(
+ 
+with conexao.cursor() as cursor:
+ 
+    cursor.execute("SELECT * FROM laudos ORDER BY id")
+ 
+    colunas = [coluna.name for coluna in cursor.description]
+ 
+    df_banco = pd.DataFrame(
+        cursor.fetchall(),
+        columns=colunas
+    )
+ 
+# Fecha a conexão
+conexao.close()
+ 
+df_banco.to_csv(
     pasta_amostra / "laudos.csv",
     index=False,
     sep=",",

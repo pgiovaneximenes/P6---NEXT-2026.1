@@ -121,7 +121,7 @@ def analisar_exatidao(laudo):
         return None
 
     if any(
-        abs(erro) >= LIMITE_ERRO_ANALISE
+        abs(erro) > LIMITE_ERRO_ANALISE
         for erro in erros_validos
     ):
         return "REPROVADO"
