@@ -434,7 +434,7 @@ def extrair_laudo(arquivo_pdf):
     padrao = (
         r"(-?\d+,\d+)\s+"
         r"(-?\d+,\d+)\s+"
-        r"(-?\d+,\d+)\s+"
+        r"(-?\d+,\d+)\s*"
         r"(REPROVADO|APROVADO)"
     )
 
