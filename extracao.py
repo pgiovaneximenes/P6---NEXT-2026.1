@@ -565,7 +565,7 @@ def extrair_laudo(arquivo_pdf):
     # Retorna uma linha da tabela
     return {
         "arquivo": arquivo_pdf.name,
-        "uc": uc,
+        "uc": uc or None,
         "ordem_servico": ordem_serv or None,
         "status_os": "OK" if ordem_serv else "OS AUSENTE",
         "dt_retirada": dt_retirada,
