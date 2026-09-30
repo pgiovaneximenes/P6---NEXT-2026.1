@@ -244,9 +244,8 @@ def linha_seguinte(linhas, rotulo):
         # Resultado:
         # 123
         busca = re.search(
-            re.escape(rotulo) + r"([A-Za-z0-9])$",
-            linha_limpa,
-            re.IGNORECASE
+            r"(?:^|\s)" + re.escape(rotulo) + r"([A-Za-z0-9])$",
+            linha_limpa
         )
 
         if busca:
@@ -261,6 +260,19 @@ def linha_seguinte(linhas, rotulo):
                     return parte_valor + proxima_linha
 
     return ""
+
+# Função para validar se o valor lido parece uma UC.
+# Aceita só letras e números, sem espaços, e recusa
+# rótulos do próprio laudo que às vezes vêm na linha seguinte.
+ROTULOS_LAUDO = {"UC", "UF", "CLIENTE", "ORDEM"}
+
+def uc_valida(valor):
+
+    return (
+        bool(re.fullmatch(r"[A-Za-z0-9]+", valor))
+        and valor.upper() not in ROTULOS_LAUDO
+    )
+
 
 # Função para validar se o valor lido parece uma OS.
 # Evita capturar rótulos vizinhos (ex.: "UF", "ORDEM")
@@ -414,7 +426,10 @@ def extrair_laudo(arquivo_pdf):
     linhas = texto.splitlines()
 
     # Dados do cliente
-    uc = linha_seguinte(linhas, "UC")
+    uc = linha_seguinte(linhas, "UC") 
+    if not uc_valida(uc):                # Descarta valores que não parecem uma UC  (rótulos vizinhos, endereços, textos com espaço)
+        uc = ""
+
 
     # Ordem de Serviço
     ordem_serv = extrair_ordem_servico(linhas)
