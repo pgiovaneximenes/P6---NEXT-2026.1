@@ -26,6 +26,7 @@ A documentação detalhada sobre o problema, perguntas analíticas, fonte dos da
 | Cálculo de prioridade | Seção [Prioridade](#prioridade) e função `calcular_prioridade()` em `analise.py` |
 | Pipeline com validação na entrada | `extracao.py` |
 | Problema, perguntas analíticas e documentação dos dados | `docs/01_problema_e_dados.md` |
+| Dashboard em Power BI | Pasta `dashboard/` e seção [Dashboard](#dashboard-power-bi) |
 
 ---
 
@@ -190,6 +191,85 @@ PDFs que não puderam ser lidos (por exemplo, escaneados, sem texto) aparecem na
    ```
 
 ---
+## Dashboard (Power BI)
+
+O dashboard apresenta os laudos já classificados pelo pipeline em quatro páginas: visão geral, fila priorizada, perguntas analíticas e qualidade dos dados. Todas têm os mesmos filtros laterais (**Classificação**, **Status da OS** e **Data do ensaio**) e os mesmos cartões no topo, com o total de laudos e a quantidade e o percentual de cada classificação.
+
+### Fonte dos dados
+
+Os dados chegam ao Power BI pelo **PostgreSQL**: o relatório lê a tabela `laudos` do banco `triagem_laudos`, populada pelo `extracao.py`. O dashboard não lê os PDFs diretamente.
+
+Para atualizar depois de processar novos PDFs:
+
+1. Rode `python extracao.py` para gravar os novos laudos no banco.
+2. Abra o `.pbix` no Power BI Desktop, com o PostgreSQL em execução.
+3. Clique em **Página Inicial → Atualizar**. Se o servidor ou o banco forem diferentes dos configurados, ajuste em **Transformar dados → Configurações da fonte de dados**.
+
+Sem acesso ao banco, o `.pbix` abre normalmente e mostra os dados da última atualização, mas não atualiza.
+
+### Arquivos
+
+| Arquivo | Descrição |
+|---|---|
+| [`dashboard/dashboard_neoenergia.pbix`](dashboard/dashboard_neoenergia.pbix) | Relatório do Power BI Desktop (abrir para explorar e filtrar) |
+| [`dashboard/dashboard_neoenergia.pdf`](dashboard/dashboard_neoenergia.pdf) | Exportação do relatório completo, para consulta sem o Power BI |
+| [`dashboard/prints/`](dashboard/prints) | Imagens de cada página do dashboard (exibidas abaixo) |
+
+Para abrir o `.pbix`, é necessário o [Power BI Desktop](https://www.microsoft.com/pt-br/power-platform/products/power-bi/desktop) (Windows, gratuito).
+
+### Páginas
+
+Os números abaixo se referem à amostra de **32 laudos** exibida nos prints: 11 possível fraude (34%), 11 possível defeito (34%), 1 revisão manual (3%) e 9 sem indício (28%).
+
+#### 1. Visão geral
+
+Três gráficos:
+
+- **Laudos por classificação.**
+- **Laudos por mês do ensaio.** Datas fora do formato DD/MM/AAAA ficam de fora deste gráfico.
+- **Laudos por faixa do maior erro de exatidão** (até 5%, de 5% a 15%, acima de 50% e "sem valores"). Acima de 15% a exatidão é reprovada; "sem valores" são os laudos com ensaio de exatidão não realizado.
+
+![Visão geral](dashboard/prints/01_visao_geral.png)
+
+#### 2. Fila priorizada
+
+Tabela **Fila de análise**, ordenada pela prioridade (peso da classificação + maior erro de exatidão em módulo, conforme `calcular_prioridade()`). O analista deve começar pelo topo. Colunas: posição, prioridade, classificação, OS, arquivo, data do ensaio, maior erro e motivo da classificação. Laudos sem OS aparecem como "— sem OS".
+
+![Fila priorizada](dashboard/prints/02_fila_padronizada.png)
+
+#### 3. Perguntas analíticas
+
+Responde às perguntas analíticas definidas em `docs/01_problema_e_dados.md`:
+
+1. **Quais combinações de ensaios estão associadas a fraude ou defeito?** Matriz com as combinações de ensaios não aprovados nas linhas e as classificações nas colunas. Quanto mais escura a célula, mais laudos. Na amostra, "inspeção geral + exatidão > 15%" concentra 10 casos de fraude e "marcha em vazio + exatidão sem valores" concentra os 11 casos de defeito.
+2. **Em quantos casos a solução diverge do analista?** Compara a classificação da solução com a do analista, **deduzida do prefixo do nome do arquivo** (FRA, DEF, APROVADO), e não com a classificação manual real da demandante. Na amostra, são 31 laudos cruzados, 1 divergência e 97% de concordância. O laudo divergente é `DEF_REP_03.pdf`, classificado pela solução como revisão manual e pelo analista como defeito.
+3. **Quais anomalias aparecem com mais frequência?** Gráfico de barras com filtro por grupo de classificação. Um laudo pode ter mais de uma anomalia.
+
+![Perguntas analíticas](dashboard/prints/03_perguntas_analiticas.png)
+
+#### 4. Qualidade dos dados
+
+- **Completude dos campos extraídos:** percentual de laudos com cada campo preenchido ou validado. Na amostra: Ordem de Serviço 28%, UC 28%, data do ensaio válida 100%, erros de exatidão 66% e anomalias registradas 75%. Laudos sem erros de exatidão são os de ensaio NÃO REALIZADO.
+- **Laudos com pendência de cadastro:** lista dos laudos com problemas, como OS e UC ausentes ou data no futuro.
+
+Laudos sem OS entram na fila, mas não podem ser cruzados com a base da demandante (pergunta analítica 2).
+
+![Qualidade dos dados](dashboard/prints/04_qualidade_dados.png)
+
+### Estrutura da pasta
+
+```
+dashboard/
+├── dashboard_neoenergia.pbix
+├── dashboard_neoenergia.pdf
+└── prints/
+    ├── 01_visao_geral.png
+    ├── 02_fila_padronizada.png
+    ├── 03_perguntas_analiticas.png
+    └── 04_qualidade_dados.png
+```
+
+---
 
 ## Dicionário de dados: tabela `laudos`
 
@@ -219,15 +299,17 @@ PDFs que não puderam ser lidos (por exemplo, escaneados, sem texto) aparecem na
 | `prioridade` | REAL | Peso da classificação + maior erro de exatidão em módulo |
 | `motivo_classificacao` | TEXT | Justificativa da classificação |
 | `data_ingestao` | TEXT | Data e hora em que o registro entrou no banco |
+
 ---
 
 ## Limitações conhecidas e próximos passos
 
 - **Registros existentes não são atualizados:** se a regra mudar, os laudos já gravados mantêm a classificação antiga. Para reclassificar, limpe a tabela (`TRUNCATE laudos;`) e rode o script novamente.
-- **Laudos sem OS não podem ser cruzados com a base da demandante:** eles entram na triagem e na fila, mas ficam fora da comparação com a classificação manual do analista (pergunta analítica 2), que depende da OS como chave. Nos exemplos analisados, a UC e o Nº do Medidor também vêm vazios, então não servem como chave alternativa.
+- **Laudos sem OS não podem ser cruzados com a base da demandante:** eles entram na triagem e na fila, mas ficam fora da comparação com a classificação manual do analista (pergunta analítica 2), que depende da OS como chave. Nos exemplos analisados, a UC e o Nº do Medidor também vêm vazios, então não servem como chave alternativa. No dashboard, enquanto a base da demandante não está disponível, a pergunta 2 usa como referência a classificação do analista deduzida do prefixo do nome do arquivo (FRA, DEF, APROVADO)
 - **Reemissão de laudos:** um laudo reemitido (PDF diferente com a mesma OS) não é gravado; fica na lista de erros para análise. Falta definir com a área demandante se a reemissão deve substituir o registro anterior. Um laudo que entrou sem OS e depois é reemitido com a OS preenchida entra como um segundo registro.
 - **Datas armazenadas como texto:** a conversão para `DATE`/`TIMESTAMP` facilitaria filtros por período.
 - **PDFs escaneados:** não são suportados (não há OCR).
+- **Dashboard não atualiza sozinho:** o `.pbix` mostra os dados da última atualização. Depois de processar novos PDFs, é preciso atualizar a fonte no Power BI Desktop e exportar de novo o PDF e os prints.
 
 ---
 
@@ -246,8 +328,5 @@ PDFs que não puderam ser lidos (por exemplo, escaneados, sem texto) aparecem na
 | Maria Clara | [@mclarabritocarvalho-ship-it](https://github.com/mclarabritocarvalho-ship-it) |
 | Ana Carolina Martir| [@acarolmartir-dotcom](https://github.com/acarolmartir-dotcom) |
 | Victor Silva | [@Victor-CSilva](https://github.com/Victor-CSilva) |
-
-
-|  |  |
 
 Mentor: Ricardo Teixeira
