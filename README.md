@@ -235,7 +235,7 @@ Três gráficos:
 
 Tabela **Fila de análise**, ordenada pela prioridade (peso da classificação + maior erro de exatidão em módulo, conforme `calcular_prioridade()`). O analista deve começar pelo topo. Colunas: posição, prioridade, classificação, OS, arquivo, data do ensaio, maior erro e motivo da classificação. Laudos sem OS aparecem como "— sem OS".
 
-![Fila priorizada](dashboard/prints/02_fila_padronizada.png)
+![Fila priorizada](dashboard/prints/02_fila_priorizada.png)
 
 #### 3. Perguntas analíticas
 
