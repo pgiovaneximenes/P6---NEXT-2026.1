@@ -2,13 +2,13 @@
 
 Pipeline em Python que lê laudos de aferição de medidores de energia elétrica em PDF, extrai os resultados dos ensaios, classifica cada laudo em **possível fraude/manipulação**, **possível defeito**, **sem indício identificado** ou **revisão manual**, calcula uma prioridade e grava tudo em um banco PostgreSQL. A partir do banco, é gerada a fila priorizada para análise.
 
-Projeto do módulo M6 — Experiência Prática do programa **NExT Carreira em Dados 2026.1 (CESAR School)**.
+Projeto do módulo M6 — Experiência Prática do programa **NExT Carreira em Dados 2026.1 (CESAR School)**. A apresentação final, do Pitch Day de 08/10/2026, está em [`pitch/slides.pdf`](pitch/slides.pdf) e resumida na seção [Pitch](#pitch).
 
 ---
 
 ## Contexto
 
-A área demandante recebe laudos de laboratório sobre medidores retirados de campo. Hoje a triagem é manual: alguém abre cada PDF, lê os ensaios e decide se o caso indica fraude, defeito ou nada. O objetivo do projeto é transformar essa leitura em uma **regra escrita e reproduzível**, aplicada automaticamente, para que o analista comece pelos casos de maior impacto.
+A área demandante é a Gestão de Perdas da Neoenergia Pernambuco, e quem decide caso a caso é o Analista de Perdas. Ela recebe laudos de laboratório sobre medidores retirados de campo, em média 810 por mês. Hoje a triagem é manual: alguém abre cada PDF, lê os ensaios e decide se o caso indica fraude, defeito ou nada. O objetivo do projeto é transformar essa leitura em uma **regra escrita e reproduzível**, aplicada automaticamente, para que o analista comece pelos casos de maior impacto. Com cerca de 20 minutos de análise por laudo, a leitura manual consome aproximadamente 270 horas por mês (810 × 20 min ÷ 60; fonte: `docs/01_problema_e_dados.md`).
 
 ## Problema e dados
 
@@ -27,6 +27,7 @@ A documentação detalhada sobre o problema, perguntas analíticas, fonte dos da
 | Pipeline com validação na entrada | `extracao.py` |
 | Problema, perguntas analíticas e documentação dos dados | `docs/01_problema_e_dados.md` |
 | Dashboard em Power BI | Pasta `dashboard/` e seção [Dashboard](#dashboard-power-bi) |
+| Apresentação final (pitch) | Pasta `pitch/` e seção [Pitch](#pitch) |
 
 ---
 
