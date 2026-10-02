@@ -265,10 +265,42 @@ dashboard/
 ├── dashboard_neoenergia.pdf
 └── prints/
     ├── 01_visao_geral.png
-    ├── 02_fila_padronizada.png
+    ├── 02_fila_priorizada.png
     ├── 03_perguntas_analiticas.png
     └── 04_qualidade_dados.png
 ```
+## Pitch
+
+Apresentação final do projeto no Pitch Day do NExT Carreira em Dados 2026.1, em 08/10/2026, sob o título **"Triagem de Laudos: do PDF de aferição à fila priorizada para o Analista de Perdas"**.
+
+### Arquivo
+
+| Arquivo | Descrição |
+|---|---|
+| [`pitch/slides.pdf`](pitch/slides.pdf) | Slides da apresentação (PDF) |
+
+### Roteiro
+
+| Bloco | O que cobre |
+|---|---|
+| O problema | 810 laudos por mês × 20 min de análise ≈ 270 horas de leitura manual por mês |
+| Quem decide e o que está em jogo | O Analista de Perdas decide caso a caso. Volume alto, classificação inconsistente (rotatividade e subjetividade) e risco de cobrança equivocada |
+| A solução | Pipeline em cinco etapas: laudos em PDF, extração e validação, regra de classificação, banco PostgreSQL e dashboard Power BI. A decisão final continua com o analista; a solução diz por onde começar |
+| A regra e a prioridade | Três verificações (ensaios qualitativos, exatidão e anomalias no texto), com motivo registrado. Prioridade = peso da classificação + maior erro de exatidão em módulo |
+| Demonstração | As quatro páginas do dashboard: visão geral, fila priorizada, perguntas analíticas e qualidade dos dados |
+| Resultados | Quatro números da amostra, cada um com a ação que sugere (abaixo) |
+| Próximos passos | Limitações conhecidas e o caminho para resolver cada uma (seção [Limitações conhecidas e próximos passos](#limitações-conhecidas-e-próximos-passos)) |
+
+### Resultados apresentados
+
+Todos os números se referem à amostra de **32 laudos**:
+
+- **22 de 32 laudos com indício de fraude ou defeito.** O analista começa por eles e deixa os 9 sem indício para depois.
+- **10 de 11 fraudes com inspeção geral reprovada e exatidão acima de 15%.** Ação: validar com a demandante esse par de ensaios como sinal forte de fraude.
+- **11 de 11 defeitos com marcha em vazio e exatidão sem valores.** Ação: usar o ensaio não realizado para separar defeito de fraude.
+- **97% de concordância em 31 laudos, com 1 divergência.** Ressalva: a referência do analista é deduzida do nome do arquivo, não da classificação manual real da demandante.
+
+Na página de qualidade dos dados, só 28% dos laudos trazem OS e UC preenchidas, o que limita o cruzamento com a base da demandante. O hash do arquivo permite identificar o laudo mesmo sem OS.
 
 ---
 
@@ -310,6 +342,7 @@ dashboard/
 - **Reemissão de laudos:** um laudo reemitido (PDF diferente com a mesma OS) não é gravado; fica na lista de erros para análise. Falta definir com a área demandante se a reemissão deve substituir o registro anterior. Um laudo que entrou sem OS e depois é reemitido com a OS preenchida entra como um segundo registro.
 - **Datas armazenadas como texto:** a conversão para `DATE`/`TIMESTAMP` facilitaria filtros por período.
 - **PDFs escaneados:** não são suportados (não há OCR).
+- **Prioridade técnica, sem impacto financeiro:** o peso considera a classificação e o maior erro de exatidão, mas não o valor envolvido. É preciso definir com a demandante os critérios de valor e incorporá-los ao peso. Com a amostra real de 12 meses, a regra pode ser validada e a fila passa a refletir o impacto financeiro.
 - **Dashboard não atualiza sozinho:** o `.pbix` mostra os dados da última atualização. Depois de processar novos PDFs, é preciso atualizar a fonte no Power BI Desktop e exportar de novo o PDF e os prints.
 
 ---
@@ -320,13 +353,13 @@ dashboard/
 | Nome | GitHub |
 |---|---|
 | Paulo Giovane Ximenes  | [@pgiovaneximenes](https://github.com/pgiovaneximenes) |
-| Marcelo  | [@marcel0g](https://github.com/marcel0g) |
+| Marcelo Guimaraes | [@marcel0g](https://github.com/marcel0g) |
 | Rodrigo Amorim  | [@rodrigoamorim182](https://github.com/rodrigoamorim182) |
 | Maria Alice Gadelha | [@mariaalicegadelha](https://github.com/mariaalicegadelha) |
 | Paulo Neves | [@pneves953](https://github.com/pneves953) |
 | Luiza Delgado | [@delgadoluiza](https://github.com/delgadoluiza) |
 | Amanda Conceição | [@amanda87eng-ship-it](https://github.com/amanda87eng-ship-it) |
-| Maria Clara | [@mclarabritocarvalho-ship-it](https://github.com/mclarabritocarvalho-ship-it) |
+| Maria Clara Carvalho | [@mclarabritocarvalho-ship-it](https://github.com/mclarabritocarvalho-ship-it) |
 | Ana Carolina Martir| [@acarolmartir-dotcom](https://github.com/acarolmartir-dotcom) |
 | Victor Silva | [@Victor-CSilva](https://github.com/Victor-CSilva) |
 
